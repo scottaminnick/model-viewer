@@ -545,7 +545,7 @@ function buildAirportLayer(){
     markers.forEach(function(m){
       if(map.getZoom()>=8){
         if(!m.getTooltip()){
-          var icao=m.getPopup().getContent().replace(/<b>(.*?)<\/b>.*/,'$1');
+          var icao=m.getPopup().getContent().replace(/<b>(.*?)<[/]b>.*/,'$1');
           m.bindTooltip(icao,{permanent:true,direction:"right",className:"apt-label",offset:[6,0]}).openTooltip();
         }
       } else { if(m.getTooltip()) m.unbindTooltip(); }
