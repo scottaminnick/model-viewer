@@ -1,5 +1,2 @@
 [phases.setup]
-nixPkgs = ["eccodes", "python311"]
-
-[phases.install]
-cmds = ["pip install -r requirements.txt"]
+nixPkgs = ["eccodes"]
