@@ -9,3 +9,4 @@ herbie-data
 matplotlib==3.9.4
 geopandas
 pyogrio
+pygrib
