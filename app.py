@@ -8,15 +8,16 @@ import os
 import traceback
 from flask import Flask, jsonify, redirect, render_template_string, Response, request
 
-from winds        import get_hrrr_gusts_cached, get_cycle_status_cached
+from winds         import get_hrrr_gusts_cached, get_cycle_status_cached
 from froude        import get_froude_cached
 from icing         import get_icing_cached
 from winds_surface import get_surface_wind_cached
 from virga         import get_virga_cached
 from llti          import get_llti_cached, get_llti_points_cached
 from prefetch      import start_prefetch_thread, get_all_status
-from rap_conus import (get_rap_conus_cached, get_rap_cycle_status_cached,
+from rap_conus     import (get_rap_conus_cached, get_rap_cycle_status_cached,
                        get_rap_conus_image_cached)
+from artcc_boundaries import get_artcc_geojson
 
 
 app = Flask(__name__)
@@ -231,6 +232,14 @@ def map_conus():
 def api_rap_status():
     ttl = int(os.environ.get("RAP_STATUS_TTL", "300"))
     return jsonify(get_rap_cycle_status_cached(ttl_seconds=ttl))
+
+@app.get("/api/artcc/boundaries")
+def api_artcc_boundaries():
+    """Serve ARTCC boundary GeoJSON — tries FAA live endpoint, falls back to built-in."""
+    data = get_artcc_geojson(ttl=86400)   # cache for 24 h
+    resp = jsonify(data)
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 # ── RAP CONUS gust data ───────────────────────────────────────────────────────
