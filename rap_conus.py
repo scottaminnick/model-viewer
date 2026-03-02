@@ -321,17 +321,26 @@ def fetch_rap_conus_image(cycle_utc: str, fxx: int) -> tuple[bytes, dict]:
     lon2d   = np.where(lon2d > 180, lon2d - 360, lon2d)
     vals_kt = np.maximum(vals_ms * 1.94384, 0.0)
 
+    # Clip to CONUS domain before rendering
+    col_mask = (lon2d[0, :] >= LON_MIN - 1) & (lon2d[0, :] <= LON_MAX + 1)
+    row_mask = (lat2d[:, 0] >= LAT_MIN - 1) & (lat2d[:, 0] <= LAT_MAX + 1)
+    lon2d   = lon2d[np.ix_(row_mask, col_mask)]
+    lat2d   = lat2d[np.ix_(row_mask, col_mask)]
+    vals_kt = vals_kt[np.ix_(row_mask, col_mask)]
+
     # ── Render ────────────────────────────────────────────────────────────────
-    # add_axes([0,0,1,1]) fills the entire figure → image bounds == domain bounds
+    import warnings
     fig = plt.figure(figsize=(18, 10), dpi=120)
     ax  = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(LON_MIN, LON_MAX)
     ax.set_ylim(LAT_MIN, LAT_MAX)
     ax.set_aspect("auto")
 
-    ax.pcolormesh(lon2d, lat2d, vals_kt,
-                  cmap=_GUST_CMAP, norm=_GUST_NORM,
-                  shading="nearest", rasterized=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")   # suppress non-monotonic coords warning
+        ax.pcolormesh(lon2d, lat2d, vals_kt,
+                      cmap=_GUST_CMAP, norm=_GUST_NORM,
+                      shading="nearest", rasterized=True)
     ax.axis("off")
 
     buf = io.BytesIO()
