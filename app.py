@@ -982,21 +982,33 @@ fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geo
     statesLayer.addTo(map);   // on by default
   }).catch(function(e){console.warn('States GeoJSON failed',e);});
 
-// ARTCC boundaries — FAA open data via ArcGIS
-fetch('https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Air_Route_Traffic_Control_Centers/FeatureServer/0/query?outFields=NAME,IDENT&where=1%3D1&f=geojson')
-  .then(function(r){return r.json();})
-  .then(function(gj){
-    artccLayer=L.geoJSON(gj,{
-      style:artccStyle,
-      onEachFeature:function(feat,layer){
-        var name=(feat.properties&&(feat.properties.NAME||feat.properties.IDENT))||'ARTCC';
-        layer.bindTooltip(name,{sticky:true,className:'artcc-tip',
-          direction:'center',opacity:0.9});
-      }
+// ARTCC boundaries — two source attempts for reliability
+function loadARTCC(url, idField){
+  return fetch(url)
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(gj){
+      artccLayer=L.geoJSON(gj,{
+        style:artccStyle,
+        onEachFeature:function(feat,layer){
+          var p=feat.properties||{};
+          var name=p[idField]||p.NAME||p.IDENT||p.id||p.name||'ARTCC';
+          layer.bindTooltip(name,{sticky:true,direction:'center',opacity:0.9});
+        }
+      });
+      layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
+      artccLayer.addTo(map);
+      if(dataLayer){ artccLayer.bringToFront(); }
     });
-    layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
-    artccLayer.addTo(map);    // on by default
-  }).catch(function(e){console.warn('ARTCC GeoJSON failed',e);});
+}
+loadARTCC(
+  'https://raw.githubusercontent.com/nhasan/FlightAware/master/app/static/geojson/artcc.geojson',
+  'id'
+).catch(function(){
+  loadARTCC(
+    'https://opendata.arcgis.com/datasets/a7e8c74e0c7044b89e8b0e1c1ea91562_0.geojson',
+    'IDENT'
+  ).catch(function(e){ console.warn('ARTCC: both sources failed', e); });
+});
 
 // Layer control (populated after GeoJSON loads)
 var layerControl=L.control.layers(null,{},
@@ -1158,7 +1170,7 @@ async function loadData(){
 
     // Cell size: overlap by 15% to eliminate projection gaps
     var cell=data.cell_size_deg||0.234;
-    var halfLat=cell*0.58, halfLon=cell*0.72;
+    var halfLat=cell*0.75, halfLon=cell*0.95;
 
     var renderer=L.canvas({padding:0.5}), rects=[];
     data.points.forEach(function(p){
@@ -1174,8 +1186,11 @@ async function loadData(){
     dataLayer=L.layerGroup(rects).addTo(map);
 
     // Bring boundary layers to top so they're visible over the data
-    if(statesLayer && map.hasLayer(statesLayer)) statesLayer.bringToFront();
-    if(artccLayer  && map.hasLayer(artccLayer))  artccLayer.bringToFront();
+    // Bring vector boundaries to front after canvas renders
+    setTimeout(function(){
+      if(statesLayer && map.hasLayer(statesLayer)) statesLayer.bringToFront();
+      if(artccLayer  && map.hasLayer(artccLayer))  artccLayer.bringToFront();
+    }, 100);
 
     document.getElementById('meta-valid').textContent=data.valid_utc||'—';
     document.getElementById('meta-pts').textContent=
