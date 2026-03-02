@@ -1,9 +1,12 @@
 FROM python:3.11-slim
 
-# Install the ecCodes C library that cfgrib/herbie require
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libeccodes-dev && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        libeccodes-dev \
+        libgdal-dev \
+        gdal-bin \
+        libgeos-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
