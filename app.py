@@ -1042,7 +1042,6 @@ fetch(ARTCC_URL)
       })
       .catch(function(e2){ console.warn('ARTCC: both sources failed',e2); });
   });
-});
 
 // Layer control (populated after GeoJSON loads)
 var layerControl=L.control.layers(null,{},
