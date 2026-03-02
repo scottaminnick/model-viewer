@@ -255,3 +255,110 @@ def get_rap_conus_cached(cycle_utc: str, fxx: int, ttl_seconds: int = 600) -> di
     data = fetch_rap_conus_gusts(cycle_utc, fxx)
     _CACHE[key] = {"data": data, "ts": now}
     return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Server-side PNG rendering  (eliminates projection gap artifacts)
+# ═══════════════════════════════════════════════════════════════════════════════
+import io
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+# 8-band color scale — matches the JS legend
+_GUST_BOUNDS  = [0, 5, 10, 15, 20, 25, 35, 50, 200]
+_GUST_COLORS  = ['#4575b4','#74add1','#abd9e9','#e0f3f8',
+                 '#fee090','#fc8d59','#d73027','#a50026']
+_GUST_CMAP    = mcolors.ListedColormap(_GUST_COLORS)
+_GUST_NORM    = mcolors.BoundaryNorm(_GUST_BOUNDS, _GUST_CMAP.N)
+
+# Separate image cache  { (cycle_utc, fxx): {"ts": float, "png": bytes, "meta": dict} }
+_IMG_CACHE: dict = {}
+
+
+def fetch_rap_conus_image(cycle_utc: str, fxx: int) -> tuple[bytes, dict]:
+    """
+    Fetch RAP13 GUST:surface and render to a transparent PNG via pcolormesh.
+    Returns (png_bytes, meta_dict).
+    The image exactly covers [LAT_MIN,LAT_MAX] x [LON_MIN,LON_MAX] so it
+    can be placed with L.imageOverlay using those fixed bounds.
+    """
+    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
+    valid_dt  = (cycle_dt + timedelta(hours=fxx)).replace(tzinfo=timezone.utc)
+
+    save_dir = HERBIE_DIR / f"rap_conus_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}"
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    H = Herbie(cycle_dt, model="rap", product="awp130pgrb", fxx=fxx,
+               save_dir=str(save_dir), overwrite=False)
+
+    gust_ds = None
+    for search in [":GUST:surface:", ":UGRD:10 m above ground:",
+                   ":10u:10 m above ground:"]:
+        try:
+            raw = H.xarray(search, remove_grib=False)
+            gust_ds = _as_dataset(raw)
+            break
+        except Exception:
+            continue
+    if gust_ds is None:
+        raise RuntimeError(f"No gust/wind field found in RAP awp130pgrb fxx={fxx}")
+
+    # Find wind/gust variable
+    gust_var = None
+    for vname, da in gust_ds.data_vars.items():
+        short = (da.attrs.get("GRIB_shortName") or "").lower()
+        name  = (da.attrs.get("GRIB_name")      or "").lower()
+        if short in ("gust","10u","ugrd","wind") or "gust" in name or "wind" in name:
+            gust_var = vname; break
+    if gust_var is None:
+        gust_var = list(gust_ds.data_vars)[0]
+
+    vals_ms = gust_ds[gust_var].values.squeeze()
+    lat2d   = gust_ds["latitude"].values
+    lon2d   = gust_ds["longitude"].values
+    lon2d   = np.where(lon2d > 180, lon2d - 360, lon2d)
+    vals_kt = np.maximum(vals_ms * 1.94384, 0.0)
+
+    # ── Render ────────────────────────────────────────────────────────────────
+    # add_axes([0,0,1,1]) fills the entire figure → image bounds == domain bounds
+    fig = plt.figure(figsize=(18, 10), dpi=120)
+    ax  = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(LON_MIN, LON_MAX)
+    ax.set_ylim(LAT_MIN, LAT_MAX)
+    ax.set_aspect("auto")
+
+    ax.pcolormesh(lon2d, lat2d, vals_kt,
+                  cmap=_GUST_CMAP, norm=_GUST_NORM,
+                  shading="nearest", rasterized=True)
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", transparent=True,
+                bbox_inches=None, pad_inches=0, dpi=120)
+    plt.close(fig)
+    buf.seek(0)
+    png_bytes = buf.read()
+
+    meta = {
+        "model":     "RAP13",
+        "product":   "GUST surface (PNG)",
+        "cycle_utc": cycle_dt.replace(tzinfo=timezone.utc).isoformat(timespec="minutes"),
+        "valid_utc": valid_dt.isoformat(timespec="minutes").replace("+00:00", "Z"),
+        "fxx":       fxx,
+        "bounds":    [[LAT_MIN, LON_MIN], [LAT_MAX, LON_MAX]],
+    }
+    return png_bytes, meta
+
+
+def get_rap_conus_image_cached(cycle_utc: str, fxx: int,
+                               ttl_seconds: int = 600) -> tuple[bytes, dict]:
+    key = (cycle_utc, fxx)
+    now = time.time()
+    cached = _IMG_CACHE.get(key)
+    if cached and (now - cached["ts"]) < ttl_seconds:
+        return cached["png"], cached["meta"]
+    png, meta = fetch_rap_conus_image(cycle_utc, fxx)
+    _IMG_CACHE[key] = {"png": png, "meta": meta, "ts": now}
+    return png, meta
