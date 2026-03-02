@@ -17,10 +17,13 @@ from llti          import get_llti_cached, get_llti_points_cached
 from prefetch      import start_prefetch_thread, get_all_status
 from rap_conus     import (get_rap_conus_cached, get_rap_cycle_status_cached,
                        get_rap_conus_image_cached)
-from artcc_boundaries import get_artcc_geojson
+from artcc_boundaries import ensure_artcc_geojson, get_artcc_geojson
 
 
 app = Flask(__name__)
+
+import threading
+threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
 
 # Start background pre-fetcher (warms F01-F12 cache for all products)
 start_prefetch_thread()
@@ -235,11 +238,12 @@ def api_rap_status():
 
 @app.get("/api/artcc/boundaries")
 def api_artcc_boundaries():
-    """Serve ARTCC boundary GeoJSON — tries FAA live endpoint, falls back to built-in."""
-    data = get_artcc_geojson(ttl=86400)   # cache for 24 h
-    resp = jsonify(data)
-    resp.headers["Cache-Control"] = "public, max-age=86400"
-    return resp
+    from artcc_boundaries import ARTCC_FILE, STATIC_DIR
+    if ARTCC_FILE.exists():
+        return send_from_directory(str(STATIC_DIR), "artcc.geojson",
+                                   mimetype="application/geo+json",
+                                   max_age=86400)
+    return jsonify(get_artcc_geojson())
 
 
 # ── RAP CONUS gust data ───────────────────────────────────────────────────────
