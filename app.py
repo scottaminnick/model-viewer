@@ -829,13 +829,21 @@ CONUS_MAP_TEMPLATE = """<!doctype html>
   #progress-fill { height:100%; background:var(--ac); border-radius:2px;
                    transition:width 0.4s; width:0%; }
   #main { flex:1; display:flex; min-height:0; }
-  #map  { flex:1; }
-  #sidebar { width:210px; background:var(--panel); border-left:1px solid var(--border);
+  #map  { flex:1; position:relative; }
+  #sidebar { width:220px; background:var(--panel); border-left:1px solid var(--border);
              display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; }
   #legend { padding:0.75rem; }
-  .leg-title { font-size:0.72rem; font-weight:700; color:var(--muted); margin-bottom:0.5rem; }
-  .leg-row { display:flex; align-items:center; gap:0.55rem; margin:0.3rem 0; }
-  .leg-swatch { width:22px; height:13px; border-radius:3px; opacity:0.85; flex-shrink:0; }
+  .leg-title { font-size:0.72rem; font-weight:700; color:var(--muted);
+               margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .leg-row { display:flex; align-items:center; gap:0.55rem; margin:0.22rem 0;
+             font-size:0.72rem; }
+  .leg-swatch { width:22px; height:12px; border-radius:2px; flex-shrink:0; }
+  #cursor-box { padding:0.6rem 0.75rem; border-top:1px solid var(--border);
+                font-size:0.72rem; min-height:80px; }
+  .cursor-title { font-size:0.65rem; color:var(--muted); text-transform:uppercase;
+                  letter-spacing:0.05em; margin-bottom:0.4rem; }
+  #cursor-val { font-size:1.4rem; font-weight:700; color:var(--ac); }
+  #cursor-pos { font-size:0.65rem; color:var(--muted); margin-top:0.2rem; }
   #meta { padding:0.5rem 0.75rem; font-size:0.68rem; color:var(--muted);
           border-top:1px solid var(--border); }
   #meta b { color:var(--text); }
@@ -850,10 +858,15 @@ CONUS_MAP_TEMPLATE = """<!doctype html>
   #load-msg { font-size:0.8rem; color:var(--muted); text-align:center; max-width:260px; }
   #error-bar { display:none; background:#5a1a1a; color:#f9a8a8;
                padding:0.4rem 0.75rem; font-size:0.78rem;
-               border-bottom:1px solid #8b2020; }
+               border-bottom:1px solid #8b2020; flex-shrink:0; }
   .leaflet-control-layers { background:var(--panel)!important;
-    border:1px solid var(--border)!important; color:var(--text)!important; font-size:0.78rem; }
+    border:1px solid var(--border)!important; color:var(--text)!important; font-size:0.75rem; }
   .leaflet-control-layers label { color:var(--text)!important; }
+  /* Cursor crosshair tooltip */
+  #cursor-tooltip { position:absolute; pointer-events:none; z-index:1500;
+    background:rgba(13,17,23,0.90); border:1px solid var(--border);
+    border-radius:5px; padding:0.3rem 0.55rem; font-size:0.72rem;
+    white-space:nowrap; display:none; }
 </style>
 </head>
 <body>
@@ -861,19 +874,16 @@ CONUS_MAP_TEMPLATE = """<!doctype html>
 <div id="header">
   <span class="title">🌎 RAP13 CONUS</span>
   <span class="subtitle">Wind Gusts — Surface</span>
-
   <div class="ctrl-group">
     <span class="ctrl-label">CYCLE</span>
     <select id="cycle-sel" onchange="onCycleChange()"><option value="">—</option></select>
   </div>
-
   <div class="ctrl-group" style="margin-left:auto;">
     <span class="ctrl-label">OPACITY</span>
-    <input type="range" id="opacity-slider" min="10" max="100" step="5" value="60"
+    <input type="range" id="opacity-slider" min="10" max="100" step="5" value="70"
       style="width:80px;" oninput="updateOpacity(this.value)"/>
-    <span id="opacity-val" style="font-size:0.72rem;color:var(--muted);width:28px;">60%</span>
+    <span id="opacity-val" style="font-size:0.72rem;color:var(--muted);width:28px;">70%</span>
   </div>
-
   <a class="nav-link" href="/map/hrrr">← HRRR Colorado</a>
 </div>
 
@@ -886,25 +896,38 @@ CONUS_MAP_TEMPLATE = """<!doctype html>
 </div>
 
 <div id="main">
-  <div id="map" style="position:relative;">
+  <div id="map">
     <div id="loading-overlay">
       <div class="spinner"></div>
       <div id="load-msg">Loading RAP13…<br>
-        <small style="color:var(--muted)">~30 s first load — CONUS is a big domain</small>
+        <small style="color:var(--muted)">~30 s first load</small>
       </div>
     </div>
+    <div id="cursor-tooltip"></div>
   </div>
+
   <div id="sidebar">
     <div id="legend">
       <div class="leg-title">Wind Gust (kt)</div>
-      <div class="leg-row"><div class="leg-swatch" style="background:#2ecc71"></div>&lt; 20 kt — Light</div>
-      <div class="leg-row"><div class="leg-swatch" style="background:#f1c40f"></div>20–35 kt — Moderate</div>
-      <div class="leg-row"><div class="leg-swatch" style="background:#e67e22"></div>35–50 kt — Strong</div>
-      <div class="leg-row"><div class="leg-swatch" style="background:#e74c3c"></div>&ge; 50 kt — Extreme</div>
-      <div style="margin-top:0.8rem;font-size:0.63rem;color:var(--muted);">
-        RAP13 13km grid<br>Stride=5 (~65km display)<br>Click any cell for details
+      <div class="leg-row"><div class="leg-swatch" style="background:#4575b4"></div>&lt; 5 kt — Calm</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#74add1"></div>5–10 kt — Light</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#abd9e9"></div>10–15 kt — Breezy</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#e0f3f8"></div>15–20 kt — Moderate</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#fee090"></div>20–25 kt — Fresh</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#fc8d59"></div>25–35 kt — Strong</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#d73027"></div>35–50 kt — Very Strong</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:#a50026"></div>&ge; 50 kt — Extreme</div>
+      <div style="margin-top:0.7rem;font-size:0.62rem;color:var(--muted);">
+        RAP13 13km grid, stride=2<br>Move cursor over map for value
       </div>
     </div>
+
+    <div id="cursor-box">
+      <div class="cursor-title">Cursor Sample</div>
+      <div id="cursor-val">—</div>
+      <div id="cursor-pos"></div>
+    </div>
+
     <div id="meta">
       <div>Model: <b>RAP13</b></div>
       <div>Valid: <b id="meta-valid">—</b></div>
@@ -915,45 +938,149 @@ CONUS_MAP_TEMPLATE = """<!doctype html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var currentCycle=null, currentFxx=1, currentOpacity=0.60;
-var cycleStatus={}, dataLayer=null;
+// ── Color scale (8-band, diverging blue→red) ─────────────────────────────────
+var BANDS = [
+  { max:  5, color:'#4575b4' },
+  { max: 10, color:'#74add1' },
+  { max: 15, color:'#abd9e9' },
+  { max: 20, color:'#e0f3f8' },
+  { max: 25, color:'#fee090' },
+  { max: 35, color:'#fc8d59' },
+  { max: 50, color:'#d73027' },
+  { max: Infinity, color:'#a50026' },
+];
+function gustColor(kt){
+  for(var i=0;i<BANDS.length;i++) if(kt<BANDS[i].max) return BANDS[i].color;
+  return '#a50026';
+}
 
-var map=L.map('map',{center:[39.5,-98.0],zoom:4});
+// ── State vars ────────────────────────────────────────────────────────────────
+var currentCycle=null, currentFxx=1, currentOpacity=0.70;
+var cycleStatus={}, dataLayer=null, pointsFlat=[];
 
-// Base layer
+// ── Map setup ─────────────────────────────────────────────────────────────────
+var map=L.map('map',{center:[39.5,-98.0],zoom:4,preferCanvas:true});
+
 L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   {attribution:'Tiles &copy; Esri',maxZoom:10}
 ).addTo(map);
 
-// US state boundaries overlay
-var statesLayer=L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-  {attribution:'',maxZoom:10,opacity:0.6}
-);
+// ── Boundary layers ───────────────────────────────────────────────────────────
+var stateStyle={ color:'#8b949e', weight:1.0, fill:false, opacity:0.7 };
+var artccStyle={ color:'#f0883e', weight:1.5, fill:false, opacity:0.85,
+                 dashArray:'6 4' };
+
+var statesLayer=null, artccLayer=null;
+
+// US States GeoJSON
+fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+  .then(function(r){return r.json();})
+  .then(function(gj){
+    statesLayer=L.geoJSON(gj,{style:stateStyle});
+    layerControl.addOverlay(statesLayer,'⬜ States');
+    statesLayer.addTo(map);   // on by default
+  }).catch(function(e){console.warn('States GeoJSON failed',e);});
+
+// ARTCC boundaries — FAA open data via ArcGIS
+fetch('https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Air_Route_Traffic_Control_Centers/FeatureServer/0/query?outFields=NAME,IDENT&where=1%3D1&f=geojson')
+  .then(function(r){return r.json();})
+  .then(function(gj){
+    artccLayer=L.geoJSON(gj,{
+      style:artccStyle,
+      onEachFeature:function(feat,layer){
+        var name=(feat.properties&&(feat.properties.NAME||feat.properties.IDENT))||'ARTCC';
+        layer.bindTooltip(name,{sticky:true,className:'artcc-tip',
+          direction:'center',opacity:0.9});
+      }
+    });
+    layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
+    artccLayer.addTo(map);    // on by default
+  }).catch(function(e){console.warn('ARTCC GeoJSON failed',e);});
+
+// Layer control (populated after GeoJSON loads)
+var layerControl=L.control.layers(null,{},
+  {collapsed:false,position:'topright'}).addTo(map);
 
 // Roads overlay
 var roadsLayer=L.tileLayer(
   'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
-  {attribution:'',maxZoom:10,opacity:0.45}
-);
+  {attribution:'',maxZoom:10,opacity:0.35});
+layerControl.addOverlay(roadsLayer,'≡ Roads');
 
-L.control.layers(null,{'≡ Boundaries':statesLayer,'≡ Roads':roadsLayer},
-  {collapsed:false,position:'topright'}).addTo(map);
-
-function gustColor(kt){
-  if(kt>=50) return '#e74c3c';
-  if(kt>=35) return '#e67e22';
-  if(kt>=20) return '#f1c40f';
-  return '#2ecc71';
+// ── Cursor sampling ───────────────────────────────────────────────────────────
+// Build simple grid index: bucket points by ~1° cell for fast lookup
+var _idx={}, _cellSz=1.0;
+function _idxKey(lat,lon){
+  return Math.floor(lat/_cellSz)+'|'+Math.floor(lon/_cellSz);
+}
+function buildIndex(pts){
+  _idx={};
+  for(var i=0;i<pts.length;i++){
+    var p=pts[i], k=_idxKey(p.lat,p.lon);
+    if(!_idx[k]) _idx[k]=[];
+    _idx[k].push(i);
+  }
+}
+function nearestPoint(lat,lon){
+  if(!pointsFlat.length) return null;
+  var best=null, bestD=1e9;
+  // Check 3x3 neighbourhood of cells
+  for(var dy=-1;dy<=1;dy++){
+    for(var dx=-1;dx<=1;dx++){
+      var k=(Math.floor(lat/_cellSz)+dy)+'|'+(Math.floor(lon/_cellSz)+dx);
+      var cell=_idx[k];
+      if(!cell) continue;
+      for(var i=0;i<cell.length;i++){
+        var p=pointsFlat[cell[i]];
+        var d=(p.lat-lat)*(p.lat-lat)+(p.lon-lon)*(p.lon-lon);
+        if(d<bestD){bestD=d;best=p;}
+      }
+    }
+  }
+  return bestD<4 ? best : null;   // only return if within ~2° (~200km)
 }
 
+var tooltip=document.getElementById('cursor-tooltip');
+map.on('mousemove',function(e){
+  var p=nearestPoint(e.latlng.lat,e.latlng.lng);
+  if(p){
+    var color=gustColor(p.gust_kt);
+    // Sidebar panel
+    document.getElementById('cursor-val').textContent=p.gust_kt.toFixed(0)+' kt';
+    document.getElementById('cursor-val').style.color=color;
+    document.getElementById('cursor-pos').textContent=
+      p.lat.toFixed(2)+'°N  '+Math.abs(p.lon).toFixed(2)+'°W';
+    // Floating tooltip near cursor
+    tooltip.style.display='block';
+    var cp=map.latLngToContainerPoint(e.latlng);
+    tooltip.style.left=(cp.x+18)+'px';
+    tooltip.style.top=(cp.y-12)+'px';
+    tooltip.innerHTML='<span style="color:'+color+';font-weight:700;">'+
+      p.gust_kt.toFixed(0)+' kt</span>';
+  } else {
+    tooltip.style.display='none';
+    document.getElementById('cursor-val').textContent='—';
+    document.getElementById('cursor-val').style.color='var(--ac)';
+    document.getElementById('cursor-pos').textContent='';
+  }
+});
+map.on('mouseout',function(){
+  tooltip.style.display='none';
+  document.getElementById('cursor-val').textContent='—';
+  document.getElementById('cursor-pos').textContent='';
+});
+
+// ── Opacity ───────────────────────────────────────────────────────────────────
 function updateOpacity(val){
   currentOpacity=val/100;
   document.getElementById('opacity-val').textContent=val+'%';
-  if(dataLayer) dataLayer.eachLayer(function(l){l.setStyle({fillOpacity:currentOpacity});});
+  if(dataLayer) dataLayer.eachLayer(function(l){
+    l.setStyle({fillOpacity:currentOpacity});
+  });
 }
 
+// ── Cycle status ──────────────────────────────────────────────────────────────
 async function fetchStatus(){
   try{
     var s=await(await fetch('/api/rap/status')).json();
@@ -981,8 +1108,7 @@ async function fetchStatus(){
 
 function onCycleChange(){
   currentCycle=document.getElementById('cycle-sel').value;
-  buildHourButtons();
-  loadData();
+  buildHourButtons(); loadData();
 }
 
 function buildHourButtons(){
@@ -990,9 +1116,10 @@ function buildHourButtons(){
   var cs=cycleStatus[currentCycle], avail=cs?cs.available_hours:[];
   var cached=cs?(cs.cached_hours.gusts||[]):[];
   var bar=document.getElementById('hour-bar'), prog=document.getElementById('progress-bar');
-  for(var fxx=1;fxx<=18;fxx++){(function(f){   // RAP goes to F18
+  for(var fxx=1;fxx<=18;fxx++){(function(f){
     var btn=document.createElement('button');
-    btn.className='hbtn'; btn.textContent='F'+String(f).padStart(2,'0'); btn.dataset.fxx=f;
+    btn.className='hbtn';
+    btn.textContent='F'+String(f).padStart(2,'0'); btn.dataset.fxx=f;
     var dot=document.createElement('span'); dot.className='dot-badge';
     dot.classList.add(cached.includes(f)?'dot-green':'dot-grey');
     btn.appendChild(dot);
@@ -1013,40 +1140,46 @@ function selectHour(fxx){
   loadData();
 }
 
+// ── Data load + render ────────────────────────────────────────────────────────
 async function loadData(){
   if(!currentCycle) return;
   document.getElementById('loading-overlay').classList.remove('hidden');
   document.getElementById('error-bar').style.display='none';
-  if(dataLayer){ map.removeLayer(dataLayer); dataLayer=null; }
+  if(dataLayer){ map.removeLayer(dataLayer); dataLayer=null; pointsFlat=[]; }
 
   try{
     var url='/api/rap/conus?fxx='+currentFxx+'&cycle_utc='+encodeURIComponent(currentCycle);
     var resp=await fetch(url);
-    if(!resp.ok) throw new Error((await resp.text()).slice(0,200));
+    if(!resp.ok) throw new Error((await resp.text()).slice(0,300));
     var data=await resp.json();
 
-    var half=(data.cell_size_deg||0.585)/2;
-    var halfLon=half*1.3;
-    var renderer=L.canvas(), rects=[];
+    pointsFlat=data.points;
+    buildIndex(pointsFlat);
 
+    // Cell size: overlap by 15% to eliminate projection gaps
+    var cell=data.cell_size_deg||0.234;
+    var halfLat=cell*0.58, halfLon=cell*0.72;
+
+    var renderer=L.canvas({padding:0.5}), rects=[];
     data.points.forEach(function(p){
       var color=gustColor(p.gust_kt);
       var rect=L.rectangle(
-        [[p.lat-half,p.lon-halfLon],[p.lat+half,p.lon+halfLon]],
-        {renderer:renderer,color:color,fillColor:color,
-         fillOpacity:currentOpacity,weight:0}
-      );
-      rect.bindPopup(
-        '<b>'+p.gust_kt.toFixed(0)+' kt gust</b><br>'+
-        p.lat.toFixed(2)+'°N, '+Math.abs(p.lon).toFixed(2)+'°W',
-        {maxWidth:160}
+        [[p.lat-halfLat, p.lon-halfLon],[p.lat+halfLat, p.lon+halfLon]],
+        {renderer:renderer, color:'none', fillColor:color,
+         fillOpacity:currentOpacity, weight:0, stroke:false}
       );
       rects.push(rect);
     });
 
     dataLayer=L.layerGroup(rects).addTo(map);
+
+    // Bring boundary layers to top so they're visible over the data
+    if(statesLayer && map.hasLayer(statesLayer)) statesLayer.bringToFront();
+    if(artccLayer  && map.hasLayer(artccLayer))  artccLayer.bringToFront();
+
     document.getElementById('meta-valid').textContent=data.valid_utc||'—';
-    document.getElementById('meta-pts').textContent=(data.point_count||rects.length).toLocaleString();
+    document.getElementById('meta-pts').textContent=
+      (data.point_count||rects.length).toLocaleString();
   }catch(e){
     var eb=document.getElementById('error-bar');
     eb.textContent=e.message; eb.style.display='block';
