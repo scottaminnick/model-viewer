@@ -7,4 +7,5 @@ cfgrib==0.9.15.0
 eccodes==2.39.0
 herbie-data
 matplotlib==3.9.4
-pygrib==2.1.6
+geopandas
+pyogrio
