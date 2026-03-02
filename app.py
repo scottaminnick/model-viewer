@@ -1087,9 +1087,7 @@ map.on('mouseout',function(){
 function updateOpacity(val){
   currentOpacity=val/100;
   document.getElementById('opacity-val').textContent=val+'%';
-  if(dataLayer) dataLayer.eachLayer(function(l){
-    l.setStyle({fillOpacity:currentOpacity});
-  });
+  if(dataLayer && dataLayer.setOpacity) dataLayer.setOpacity(currentOpacity);
 }
 
 // ── Cycle status ──────────────────────────────────────────────────────────────
@@ -1153,48 +1151,44 @@ function selectHour(fxx){
 }
 
 // ── Data load + render ────────────────────────────────────────────────────────
+// ── Image bounds match LAT_MIN/LAT_MAX/LON_MIN/LON_MAX in rap_conus.py
+var IMG_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
+
+function bringBoundariesToFront(){
+  if(statesLayer && map.hasLayer(statesLayer)) statesLayer.bringToFront();
+  if(artccLayer  && map.hasLayer(artccLayer))  artccLayer.bringToFront();
+}
+
 async function loadData(){
   if(!currentCycle) return;
   document.getElementById('loading-overlay').classList.remove('hidden');
   document.getElementById('error-bar').style.display='none';
-  if(dataLayer){ map.removeLayer(dataLayer); dataLayer=null; pointsFlat=[]; }
+  if(dataLayer){ map.removeLayer(dataLayer); dataLayer=null; }
+  pointsFlat=[];
 
   try{
-    var url='/api/rap/conus?fxx='+currentFxx+'&cycle_utc='+encodeURIComponent(currentCycle);
-    var resp=await fetch(url);
-    if(!resp.ok) throw new Error((await resp.text()).slice(0,300));
-    var data=await resp.json();
-
-    pointsFlat=data.points;
+    // Fetch point data for cursor sampling
+    var ptUrl='/api/rap/conus?fxx='+currentFxx+'&cycle_utc='+encodeURIComponent(currentCycle);
+    var ptResp=await fetch(ptUrl);
+    if(!ptResp.ok) throw new Error((await ptResp.text()).slice(0,300));
+    var ptData=await ptResp.json();
+    pointsFlat=ptData.points;
     buildIndex(pointsFlat);
-
-    // Cell size: overlap by 15% to eliminate projection gaps
-    var cell=data.cell_size_deg||0.234;
-    var halfLat=cell*0.75, halfLon=cell*0.95;
-
-    var renderer=L.canvas({padding:0.5}), rects=[];
-    data.points.forEach(function(p){
-      var color=gustColor(p.gust_kt);
-      var rect=L.rectangle(
-        [[p.lat-halfLat, p.lon-halfLon],[p.lat+halfLat, p.lon+halfLon]],
-        {renderer:renderer, color:'none', fillColor:color,
-         fillOpacity:currentOpacity, weight:0, stroke:false}
-      );
-      rects.push(rect);
-    });
-
-    dataLayer=L.layerGroup(rects).addTo(map);
-
-    // Bring boundary layers to top so they're visible over the data
-    // Bring vector boundaries to front after canvas renders
-    setTimeout(function(){
-      if(statesLayer && map.hasLayer(statesLayer)) statesLayer.bringToFront();
-      if(artccLayer  && map.hasLayer(artccLayer))  artccLayer.bringToFront();
-    }, 100);
-
-    document.getElementById('meta-valid').textContent=data.valid_utc||'—';
+    document.getElementById('meta-valid').textContent=ptData.valid_utc||'—';
     document.getElementById('meta-pts').textContent=
-      (data.point_count||rects.length).toLocaleString();
+      (ptData.point_count||ptData.points.length).toLocaleString();
+
+    // Server-rendered PNG — smooth, projection-correct, no gaps
+    var imgUrl='/api/rap/conus/image?fxx='+currentFxx+
+               '&cycle_utc='+encodeURIComponent(currentCycle)+
+               '&_t='+Date.now();
+    dataLayer=L.imageOverlay(imgUrl, IMG_BOUNDS, {
+      opacity:currentOpacity, interactive:false, zIndex:200
+    }).addTo(map);
+
+    dataLayer.on('load', bringBoundariesToFront);
+    setTimeout(bringBoundariesToFront, 300);
+
   }catch(e){
     var eb=document.getElementById('error-bar');
     eb.textContent=e.message; eb.style.display='block';
