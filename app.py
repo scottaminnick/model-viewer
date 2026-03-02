@@ -15,7 +15,9 @@ from winds_surface import get_surface_wind_cached
 from virga         import get_virga_cached
 from llti          import get_llti_cached, get_llti_points_cached
 from prefetch      import start_prefetch_thread, get_all_status
-from rap_conus     import get_rap_conus_cached, get_rap_cycle_status_cached
+from rap_conus import (get_rap_conus_cached, get_rap_cycle_status_cached,
+                       get_rap_conus_image_cached)
+
 
 app = Flask(__name__)
 
@@ -253,6 +255,29 @@ def api_rap_conus():
                 "cycle_utc": cycle_utc,
                 "message":   f"F{fxx:02d} not yet available on AWS.",
             }), 404
+        raise
+
+@app.get("/api/rap/conus/image")
+def api_rap_conus_image():
+    fxx       = int(request.args.get("fxx", 1))
+    ttl       = int(request.args.get("ttl", os.environ.get("RAP_TTL", "600")))
+
+    cycle_utc = request.args.get("cycle_utc")
+    if not cycle_utc:
+        status    = get_rap_cycle_status_cached(ttl_seconds=300)
+        cycle_utc = status["cycles"][0]["cycle_utc"]
+
+    try:
+        png_bytes, meta = get_rap_conus_image_cached(
+            cycle_utc=cycle_utc, fxx=fxx, ttl_seconds=ttl)
+        resp = Response(png_bytes, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=600"
+        resp.headers["X-Valid-UTC"]   = meta.get("valid_utc", "")
+        return resp
+    except Exception as e:
+        if _not_ready(str(e)):
+            return jsonify({"error": "not_available", "fxx": fxx,
+                            "message": f"F{fxx:02d} not yet available."}), 404
         raise
 
 # ─────────────────────────────────────────────────────────────────────────────
