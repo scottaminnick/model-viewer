@@ -992,9 +992,9 @@ L.tileLayer(
 ).addTo(map);
 
 // ── Boundary layers ───────────────────────────────────────────────────────────
-var stateStyle={ color:'#8b949e', weight:1.0, fill:false, opacity:0.7 };
-var artccStyle={ color:'#f0883e', weight:1.5, fill:false, opacity:0.85,
-                 dashArray:'6 4' };
+var stateStyle={ color:'#e6edf3', weight:1.8, fill:false, opacity:0.9 };
+var artccStyle={ color:'#ffa657', weight:2.0, fill:false, opacity:0.95,
+                 dashArray:'8 4' };
 
 var statesLayer=null, artccLayer=null;
 
@@ -1007,32 +1007,41 @@ fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geo
     statesLayer.addTo(map);   // on by default
   }).catch(function(e){console.warn('States GeoJSON failed',e);});
 
-// ARTCC boundaries — two source attempts for reliability
-function loadARTCC(url, idField){
-  return fetch(url)
-    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function(gj){
-      artccLayer=L.geoJSON(gj,{
-        style:artccStyle,
-        onEachFeature:function(feat,layer){
-          var p=feat.properties||{};
-          var name=p[idField]||p.NAME||p.IDENT||p.id||p.name||'ARTCC';
-          layer.bindTooltip(name,{sticky:true,direction:'center',opacity:0.9});
-        }
-      });
-      layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
-      artccLayer.addTo(map);
-      if(dataLayer){ artccLayer.bringToFront(); }
+// ARTCC boundaries — FAA via ArcGIS Hub (most reliable public endpoint)
+var ARTCC_URL='https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Air_Route_Traffic_Control_Centers/FeatureServer/0/query?where=1%3D1&outFields=NAME&f=geojson';
+fetch(ARTCC_URL)
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(function(gj){
+    if(!gj.features||!gj.features.length) throw new Error('empty response');
+    artccLayer=L.geoJSON(gj,{
+      style:artccStyle,
+      onEachFeature:function(feat,layer){
+        var name=(feat.properties&&feat.properties.NAME)||'ARTCC';
+        layer.bindTooltip(name,{sticky:true,direction:'center',opacity:0.95});
+      }
     });
-}
-loadARTCC(
-  'https://raw.githubusercontent.com/nhasan/FlightAware/master/app/static/geojson/artcc.geojson',
-  'id'
-).catch(function(){
-  loadARTCC(
-    'https://opendata.arcgis.com/datasets/a7e8c74e0c7044b89e8b0e1c1ea91562_0.geojson',
-    'IDENT'
-  ).catch(function(e){ console.warn('ARTCC: both sources failed', e); });
+    layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
+    artccLayer.addTo(map);
+    bringBoundariesToFront();
+    console.log('ARTCC: loaded '+gj.features.length+' centers');
+  })
+  .catch(function(err){
+    console.warn('ARTCC primary failed ('+err+'), trying ArcGIS Open Data...');
+    fetch('https://opendata.arcgis.com/datasets/a7e8c74e0c7044b89e8b0e1c1ea91562_0.geojson')
+      .then(function(r){ return r.json(); })
+      .then(function(gj){
+        artccLayer=L.geoJSON(gj,{style:artccStyle,
+          onEachFeature:function(feat,layer){
+            var p=feat.properties||{};
+            layer.bindTooltip(p.IDENT||p.NAME||'ARTCC',
+              {sticky:true,direction:'center',opacity:0.95});
+          }});
+        layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
+        artccLayer.addTo(map);
+        bringBoundariesToFront();
+      })
+      .catch(function(e2){ console.warn('ARTCC: both sources failed',e2); });
+  });
 });
 
 // Layer control (populated after GeoJSON loads)
@@ -1224,6 +1233,22 @@ async function loadData(){
 
 fetchStatus().then(function(){if(currentCycle) loadData();});
 setInterval(fetchStatus,300000);
+
+// ── Arrow key navigation ──────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var cs = cycleStatus[currentCycle];
+  if(!cs || !cs.available_hours.length) return;
+  var avail = cs.available_hours;
+  var idx   = avail.indexOf(currentFxx);
+  var next;
+  if(e.key === 'ArrowRight') {
+    next = idx < avail.length-1 ? avail[idx+1] : null;
+  } else {
+    next = idx > 0 ? avail[idx-1] : null;
+  }
+  if(next !== null) selectHour(next);
+});
 </script>
 </body>
 </html>"""
