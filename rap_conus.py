@@ -25,7 +25,7 @@ LAT_MIN, LAT_MAX =  22.0,  52.0
 LON_MIN, LON_MAX = -126.0, -64.0
 
 # Grid stride — every Nth point
-_STRIDE = 5
+_STRIDE = 2
 
 # ── in-memory cache keyed by (cycle_utc, fxx) ────────────────────────────────
 _CACHE: dict = {}
