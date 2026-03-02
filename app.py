@@ -19,7 +19,6 @@ from rap_conus     import (get_rap_conus_cached, get_rap_cycle_status_cached,
                        get_rap_conus_image_cached)
 from artcc_boundaries import ensure_artcc_geojson, get_artcc_geojson
 
-
 app = Flask(__name__)
 
 import threading
@@ -35,7 +34,6 @@ start_prefetch_thread()
 @app.get("/")
 def root():
     return redirect("/map/hrrr")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Map pages
@@ -238,12 +236,11 @@ def api_rap_status():
 
 @app.get("/api/artcc/boundaries")
 def api_artcc_boundaries():
-    from artcc_boundaries import ARTCC_FILE, STATIC_DIR
-    if ARTCC_FILE.exists():
-        return send_from_directory(str(STATIC_DIR), "artcc.geojson",
-                                   mimetype="application/geo+json",
-                                   max_age=86400)
-    return jsonify(get_artcc_geojson())
+    """Serve ARTCC GeoJSON — downloaded at startup to /tmp, NOT from static/."""
+    data = get_artcc_geojson()
+    resp = jsonify(data)
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 # ── RAP CONUS gust data ───────────────────────────────────────────────────────
