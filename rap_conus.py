@@ -49,7 +49,7 @@ def _find_latest_rap_cycle(max_lookback: int = 6) -> datetime:
         candidate = base - timedelta(hours=h)
         try:
             H = Herbie(
-                candidate, model="rap", product="wrfsfc", fxx=1,
+                candidate, model="rap", product="awp130pgrb", fxx=1,
                 save_dir=str(HERBIE_DIR / "rap_conus_probe"),
                 overwrite=False,
             )
@@ -80,7 +80,7 @@ def get_rap_cycle_status_cached(ttl_seconds: int = 300) -> dict:
         for fxx in range(1, 19):     # RAP goes to F18
             try:
                 H = Herbie(
-                    cycle_dt, model="rap", product="wrfsfc", fxx=fxx,
+                    cycle_dt, model="rap", product="awp130pgrb", fxx=fxx,
                     save_dir=str(HERBIE_DIR / "rap_conus_probe"),
                     overwrite=False,
                 )
@@ -149,7 +149,7 @@ def fetch_rap_conus_gusts(cycle_utc: str, fxx: int) -> dict:
     save_dir.mkdir(parents=True, exist_ok=True)
 
     H = Herbie(
-        cycle_dt, model="rap", product="wrfsfc", fxx=fxx,
+        cycle_dt, model="rap", product="awp130pgrb", fxx=fxx,
         save_dir=str(save_dir), overwrite=False,
     )
 
@@ -165,7 +165,7 @@ def fetch_rap_conus_gusts(cycle_utc: str, fxx: int) -> dict:
 
     if gust_ds is None:
         raise RuntimeError(
-            f"Could not find a gust/wind field in RAP wrfsfc "
+            f"Could not find a gust/wind field in RAP awp130pgrb "
             f"cycle={cycle_utc} fxx={fxx}"
         )
 
