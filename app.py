@@ -1007,8 +1007,8 @@ fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geo
     statesLayer.addTo(map);   // on by default
   }).catch(function(e){console.warn('States GeoJSON failed',e);});
 
-// ARTCC boundaries — served from local static file (no external dependency)
-fetch('/static/artcc.geojson')
+// ARTCC boundaries — served from local API (tries FAA live, falls back to built-in)
+fetch('/api/artcc/boundaries')
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(gj){
     artccLayer=L.geoJSON(gj,{
