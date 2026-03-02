@@ -1007,41 +1007,24 @@ fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geo
     statesLayer.addTo(map);   // on by default
   }).catch(function(e){console.warn('States GeoJSON failed',e);});
 
-// ARTCC boundaries — FAA via ArcGIS Hub (most reliable public endpoint)
-var ARTCC_URL='https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Air_Route_Traffic_Control_Centers/FeatureServer/0/query?where=1%3D1&outFields=NAME&f=geojson';
-fetch(ARTCC_URL)
+// ARTCC boundaries — served from local static file (no external dependency)
+fetch('/static/artcc.geojson')
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(gj){
-    if(!gj.features||!gj.features.length) throw new Error('empty response');
     artccLayer=L.geoJSON(gj,{
       style:artccStyle,
       onEachFeature:function(feat,layer){
-        var name=(feat.properties&&feat.properties.NAME)||'ARTCC';
+        var p=feat.properties||{};
+        var name=p.NAME||p.IDENT||p.id||p.name||'ARTCC';
         layer.bindTooltip(name,{sticky:true,direction:'center',opacity:0.95});
       }
     });
     layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
     artccLayer.addTo(map);
     bringBoundariesToFront();
-    console.log('ARTCC: loaded '+gj.features.length+' centers');
+    console.log('ARTCC loaded: '+gj.features.length+' centers');
   })
-  .catch(function(err){
-    console.warn('ARTCC primary failed ('+err+'), trying ArcGIS Open Data...');
-    fetch('https://opendata.arcgis.com/datasets/a7e8c74e0c7044b89e8b0e1c1ea91562_0.geojson')
-      .then(function(r){ return r.json(); })
-      .then(function(gj){
-        artccLayer=L.geoJSON(gj,{style:artccStyle,
-          onEachFeature:function(feat,layer){
-            var p=feat.properties||{};
-            layer.bindTooltip(p.IDENT||p.NAME||'ARTCC',
-              {sticky:true,direction:'center',opacity:0.95});
-          }});
-        layerControl.addOverlay(artccLayer,'🔶 ARTCCs');
-        artccLayer.addTo(map);
-        bringBoundariesToFront();
-      })
-      .catch(function(e2){ console.warn('ARTCC: both sources failed',e2); });
-  });
+  .catch(function(e){ console.warn('ARTCC load failed:',e); });
 
 // Layer control (populated after GeoJSON loads)
 var layerControl=L.control.layers(null,{},
@@ -1236,6 +1219,7 @@ setInterval(fetchStatus,300000);
 // ── Arrow key navigation ──────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
   if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault();  // stop map from panning
   var cs = cycleStatus[currentCycle];
   if(!cs || !cs.available_hours.length) return;
   var avail = cs.available_hours;
