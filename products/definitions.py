@@ -82,22 +82,17 @@ _wind10_cmap, _wind10_norm, _wind10_legend = _scale(
 
 @dataclass
 class _SurfaceWindSpeed(ProductDef):
-    """Fetches 10m U+V, returns wind speed in knots."""
+    """Fetches 10m U+V in ONE call (paired GRIB message), returns wind speed in knots."""
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_sfcwind"
-        ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx,
-                            [":UGRD:10 m above ground:", ":10u:", ":UGRD:10m above"],
-                            tag + "_u")
-        ds_v = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx,
-                            [":VGRD:10 m above ground:", ":10v:", ":VGRD:10m above"],
-                            tag + "_v")
-        u = extract_var(ds_u, ["ugrd","u10","u"])
-        v = extract_var(ds_v, ["vgrd","v10","v"])
-        lat2d, lon2d = get_latlon(ds_u)
-        spd_kt = np.sqrt(u**2 + v**2) * 1.94384
-        return lat2d, lon2d, spd_kt
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx,
+                          [":UGRD:10 m above ground:|:VGRD:10 m above ground:"],
+                          tag + "_uv")
+        u = extract_var(ds, ["ugrd", "u10", "u"])
+        v = extract_var(ds, ["vgrd", "v10", "v"])
+        lat2d, lon2d = get_latlon(ds)
+        return lat2d, lon2d, np.sqrt(u**2 + v**2) * 1.94384
 
 register(_SurfaceWindSpeed(
     model_id="rap13", product_id="surface_wind",
@@ -162,20 +157,16 @@ _w500_cmap, _w500_norm, _w500_legend = _scale(
 
 @dataclass
 class _Wind500mb(ProductDef):
-    """500mb wind speed from U+V components."""
+    """500mb wind speed — U+V fetched together."""
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_500mb"
-        ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, 
-                            [":UGRD:500 mb:", "500u:", ":UGRD:500 mb:"], 
-                            tag + "_u")
-        ds_v = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, 
-                            [":VGRD:500 mb:", "500v:", ":UGRD:500 mb:"], 
-                            tag + "_v")
-        u = extract_var(ds_u, ["ugrd","u"])
-        v = extract_var(ds_v, ["vgrd","v"])
-        lat2d, lon2d = get_latlon(ds_u)
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx,
+                          [":UGRD:500 mb:|:VGRD:500 mb:"],
+                          tag + "_uv")
+        u = extract_var(ds, ["ugrd", "u"])
+        v = extract_var(ds, ["vgrd", "v"])
+        lat2d, lon2d = get_latlon(ds)
         return lat2d, lon2d, np.sqrt(u**2 + v**2) * 1.94384
 
 register(_Wind500mb(
@@ -320,49 +311,34 @@ _fr_cmap, _fr_norm, _fr_legend = _scale(
 
 @dataclass
 class _Froude(ProductDef):
-    """
-    Fr = U_700 / (N * H)
-    N² = (g/θ_mean) * (Δθ/Δz) using 850–500mb layer
-    H = 1000 m (representative Rocky Mountain terrain scale)
-    """
+    """Fr = U_700 / (N * H) — 700mb U+V fetched together."""
     def get_values(self, cycle_dt, fxx):
         g = 9.81
-        H = 1000.0   # meters
+        H = 1000.0
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_froude"
 
-        # Fetch 700mb winds for U_perp proxy
-        ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":UGRD:700 mb:"], f"{tag}_u700")
-        ds_v = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":VGRD:700 mb:"], f"{tag}_v700")
-        u700 = extract_var(ds_u, ["ugrd","u"])
-        v700 = extract_var(ds_v, ["vgrd","v"])
-        U = np.sqrt(u700**2 + v700**2)   # m/s
+        ds_uv = herbie_fetch(self.herbie_model, self.herbie_product,
+                             cycle_dt, fxx,
+                             [":UGRD:700 mb:|:VGRD:700 mb:"],
+                             f"{tag}_uv700")
+        u700 = extract_var(ds_uv, ["ugrd", "u"])
+        v700 = extract_var(ds_uv, ["vgrd", "v"])
+        U = np.sqrt(u700**2 + v700**2)
+        lat2d, lon2d = get_latlon(ds_uv)
 
-        lat2d, lon2d = get_latlon(ds_u)
-
-        # Fetch temps at 850 and 500mb for N calculation
         ds_t850 = herbie_fetch(self.herbie_model, self.herbie_product,
                                cycle_dt, fxx, [":TMP:850 mb:"], f"{tag}_t850")
         ds_t500 = herbie_fetch(self.herbie_model, self.herbie_product,
                                cycle_dt, fxx, [":TMP:500 mb:"], f"{tag}_t500")
-        T850 = extract_var(ds_t850, ["tmp","t"])   # Kelvin
-        T500 = extract_var(ds_t500, ["tmp","t"])
+        T850 = extract_var(ds_t850, ["tmp", "t"])
+        T500 = extract_var(ds_t500, ["tmp", "t"])
 
-        # Potential temperature: θ = T * (1000/P)^0.286
         theta850 = T850 * (1000/850)**0.286
         theta500 = T500 * (1000/500)**0.286
         theta_mean = (theta850 + theta500) / 2.0
-
-        # Layer depth ~4000m (850→500mb rough estimate)
         dz = 4000.0
-        dtheta = theta500 - theta850
-        N2 = (g / theta_mean) * (dtheta / dz)
-        N2 = np.maximum(N2, 1e-6)    # keep positive (stable only)
-        N  = np.sqrt(N2)
-
-        Fr = U / (N * H)
-        Fr = np.clip(Fr, 0, 5.0)
+        N2 = np.maximum((g / theta_mean) * ((theta500 - theta850) / dz), 1e-6)
+        Fr = np.clip(U / (np.sqrt(N2) * H), 0, 5.0)
         return lat2d, lon2d, Fr
 
 register(_Froude(
@@ -392,48 +368,35 @@ _ti_cmap, _ti_norm, _ti_legend = _scale(
 
 @dataclass
 class _Turbulence(ProductDef):
-    """
-    Ellrod TI = Vws * Def × 10^7
-    Uses 300 and 250mb to approximate upper-level CAT.
-    """
+    """Ellrod TI — 300mb and 250mb U+V each fetched together."""
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_turb"
 
-        def fetch_uv(lev):
-            u = extract_var(
-                herbie_fetch(self.herbie_model, self.herbie_product,
-                             cycle_dt, fxx, [f":UGRD:{lev} mb:"],
-                             f"{tag}_u{lev}"),
-                ["ugrd","u"])
-            v = extract_var(
-                herbie_fetch(self.herbie_model, self.herbie_product,
-                             cycle_dt, fxx, [f":VGRD:{lev} mb:"],
-                             f"{tag}_v{lev}"),
-                ["vgrd","v"])
-            return u, v
+        ds300 = herbie_fetch(self.herbie_model, self.herbie_product,
+                             cycle_dt, fxx,
+                             [":UGRD:300 mb:|:VGRD:300 mb:"],
+                             f"{tag}_uv300")
+        ds250 = herbie_fetch(self.herbie_model, self.herbie_product,
+                             cycle_dt, fxx,
+                             [":UGRD:250 mb:|:VGRD:250 mb:"],
+                             f"{tag}_uv250")
 
-        u300, v300 = fetch_uv(300)
-        u250, v250 = fetch_uv(250)
+        u300 = extract_var(ds300, ["ugrd", "u"])
+        v300 = extract_var(ds300, ["vgrd", "v"])
+        u250 = extract_var(ds250, ["ugrd", "u"])
+        v250 = extract_var(ds250, ["vgrd", "v"])
+        lat2d, lon2d = get_latlon(ds300)
 
-        ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":UGRD:250 mb:"], f"{tag}_u250")
-        lat2d, lon2d = get_latlon(ds_u)
-
-        # Vertical wind shear (250–300mb layer, ~1500m)
-        dz  = 1500.0
+        dz = 1500.0
         Vws = np.sqrt((u250-u300)**2 + (v250-v300)**2) / dz
 
-        # Horizontal deformation from 300mb winds
         du_dx = np.gradient(u300, axis=1)
         du_dy = np.gradient(u300, axis=0)
         dv_dx = np.gradient(v300, axis=1)
         dv_dy = np.gradient(v300, axis=0)
-        DST = du_dx - dv_dy    # stretching deformation
-        DSH = dv_dx + du_dy    # shearing deformation
-        Def = np.sqrt(DST**2 + DSH**2)
+        Def = np.sqrt((du_dx - dv_dy)**2 + (dv_dx + du_dy)**2)
 
-        TI = Vws * Def * 1e7
-        TI = np.clip(TI, 0, 200)
+        TI = np.clip(Vws * Def * 1e7, 0, 200)
         return lat2d, lon2d, TI
 
 register(_Turbulence(
