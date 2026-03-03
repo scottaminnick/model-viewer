@@ -100,7 +100,7 @@
 <script>
 const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
 let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
-let imageOverlay = null, pointsData = null, curUnits = "";
+let imageOverlay = null, barbOverlay = null, pointsData = null, curUnits = "";
 
 // Map
 const map = L.map("map").setView([39, -98], 4);
@@ -212,6 +212,15 @@ async function loadImage(fxx) {
   const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
   imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, zIndex: 200 }).addTo(map);
+
+  if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
+  const mDef = registry.find(m => m.model_id === curModel);
+  const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
+  if (pDef && pDef.supports_barbs) {
+    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
+  }
+
   setBadge("100% ready", "#3fb950");
   // Points for cursor
   fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
@@ -224,6 +233,15 @@ async function loadImage(fxx) {
     });
 }
 
+// After setting the main image overlay:
+if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
+
+if (currentProduct && currentProduct.supports_barbs) {
+    const barbUrl = `/api/barbs/${currentModel}/${currentProduct.product_id}/${encodeURIComponent(currentCycle)}/${currentFxx}?t=${Date.now()}`;
+    barbOverlay = L.imageOverlay(barbUrl, CONUS_BOUNDS, { opacity: 1.0, interactive: false });
+    barbOverlay.addTo(map);
+}
+  
 function setBadge(t, c) {
   const el = document.getElementById("ready-badge");
   el.textContent = t; el.style.color = c;
