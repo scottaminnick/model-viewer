@@ -86,9 +86,13 @@ class _SurfaceWindSpeed(ProductDef):
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_sfcwind"
         ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":UGRD:10 m above ground:"], tag + "_u")
+                            cycle_dt, fxx,
+                            [":UGRD:10 m above ground:", ":10u:", ":UGRD:10m above"],
+                            tag + "_u")
         ds_v = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":VGRD:10 m above ground:"], tag + "_v")
+                            cycle_dt, fxx,
+                            [":VGRD:10 m above ground:", ":10v:", ":VGRD:10m above"],
+                            tag + "_v")
         u = extract_var(ds_u, ["ugrd","u10","u"])
         v = extract_var(ds_v, ["vgrd","v10","v"])
         lat2d, lon2d = get_latlon(ds_u)
