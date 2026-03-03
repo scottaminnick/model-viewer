@@ -235,11 +235,11 @@ async function loadImage(fxx) {
 
 // After setting the main image overlay:
 if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
-
-if (currentProduct && currentProduct.supports_barbs) {
-    const barbUrl = `/api/barbs/${currentModel}/${currentProduct.product_id}/${encodeURIComponent(currentCycle)}/${currentFxx}?t=${Date.now()}`;
-    barbOverlay = L.imageOverlay(barbUrl, CONUS_BOUNDS, { opacity: 1.0, interactive: false });
-    barbOverlay.addTo(map);
+const mDef = registry.find(m => m.model_id === curModel);
+const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
+if (pDef && pDef.supports_barbs) {
+    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${curFxx}?t=${Date.now()}`;
+    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
 }
   
 function setBadge(t, c) {
