@@ -161,6 +161,19 @@ def api_artcc():
     resp.headers["Cache-Control"] = "public, max-age=3600"
     return resp
 
+@app.get("/api/debug/inventory/<model_id>/<product_id>")
+def api_debug_inventory(model_id, product_id):
+    """Dump the Herbie inventory for a product — use to find correct search strings."""
+    from renderer import find_latest_cycle, HERBIE_DIR
+    from herbie import Herbie
+    prod = get_product(model_id, product_id)
+    cycle_dt = find_latest_cycle(prod.herbie_model, prod.herbie_product)
+    save_dir = HERBIE_DIR / f"{model_id}_debug"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    H = Herbie(cycle_dt, model=prod.herbie_model, product=prod.herbie_product,
+               fxx=1, save_dir=str(save_dir), overwrite=False)
+    inv = H.inventory()
+    return Response(inv.to_string(), mimetype="text/plain")
 
 # ── error handler ─────────────────────────────────────────────────────────────
 
