@@ -16,7 +16,7 @@ from renderer import (
     render_png, extract_points,
     IMAGE_CACHE, POINTS_CACHE,
     LAT_MIN, LAT_MAX, LON_MIN, LON_MAX,
-    render_barbs.png
+    render_barbs_png
 )
 import products.definitions   # registers all products as a side-effect
 from products import REGISTRY, registry_json, get_product
