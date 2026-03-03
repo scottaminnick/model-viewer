@@ -166,9 +166,13 @@ class _Wind500mb(ProductDef):
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_500mb"
         ds_u = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":UGRD:500 mb:"], tag + "_u")
+                            cycle_dt, fxx, 
+                            [":UGRD:500 mb:", "500u:", ":UGRD:500 mb:"], 
+                            tag + "_u")
         ds_v = herbie_fetch(self.herbie_model, self.herbie_product,
-                            cycle_dt, fxx, [":VGRD:500 mb:"], tag + "_v")
+                            cycle_dt, fxx, 
+                            [":VGRD:500 mb:", "500v:", ":UGRD:500 mb:"], 
+                            tag + "_v")
         u = extract_var(ds_u, ["ugrd","u"])
         v = extract_var(ds_v, ["vgrd","v"])
         lat2d, lon2d = get_latlon(ds_u)
