@@ -94,12 +94,24 @@ class _SurfaceWindSpeed(ProductDef):
         lat2d, lon2d = get_latlon(ds)
         return lat2d, lon2d, np.sqrt(u**2 + v**2) * 1.94384
 
+    def get_barb_data(self, cycle_dt, fxx):
+        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_sfcwind"
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx,
+                          [":UGRD:10 m above ground:|:VGRD:10 m above ground:"],
+                          tag + "_uv")
+        u = extract_var(ds, ["ugrd", "u10", "u"])
+        v = extract_var(ds, ["vgrd", "v10", "v"])
+        lat2d, lon2d = get_latlon(ds)
+        return lat2d, lon2d, u, v
+
 register(_SurfaceWindSpeed(
     model_id="rap13", product_id="surface_wind",
     label="Surface Wind Speed — 10m", units="kt",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],  # get_values() handles fetching directly
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
+    support_barbs=True,
 ))
 register(_SurfaceWindSpeed(
     model_id="hrrr", product_id="surface_wind",
@@ -107,6 +119,7 @@ register(_SurfaceWindSpeed(
     herbie_model="hrrr", herbie_product="sfc",
     searches=[],
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
+    support_barbs=True,
 ))
 
 
@@ -169,12 +182,24 @@ class _Wind500mb(ProductDef):
         lat2d, lon2d = get_latlon(ds)
         return lat2d, lon2d, np.sqrt(u**2 + v**2) * 1.94384
 
+    def get_barb_data(self, cycle_dt, fxx):
+        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_500mb"
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx,
+                          [":UGRD:500 mb:|:VGRD:500 mb:"],
+                          tag + "_uv")
+        u = extract_var(ds, ["ugrd", "u"])
+        v = extract_var(ds, ["vgrd", "v"])
+        lat2d, lon2d = get_latlon(ds)
+        return lat2d, lon2d, u, v
+
 register(_Wind500mb(
     model_id="rap13", product_id="wind_500mb",
     label="500mb Wind Speed", units="kt",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
+    support_barbs=True,
 ))
 register(_Wind500mb(
     model_id="hrrr", product_id="wind_500mb",
@@ -182,6 +207,7 @@ register(_Wind500mb(
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
+    support_barbs=True,
 ))
 
 
