@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, Response, send_from_directory, request
+from werkzeug.exceptions import HTTPException
 
 from artcc_boundaries import ensure_artcc_geojson, get_artcc_geojson
 from renderer import (
@@ -37,6 +38,13 @@ TTL = 600   # seconds — cache rendered images for 10 min
 def index():
     return send_from_directory("static", "index.html")
 
+@app.get("/map/conus")
+def map_conus():
+    """Legacy route used by Railway deployments.
+
+    Serve the same SPA entrypoint as `/` so deep links do not 404.
+    """
+    return send_from_directory("static", "index.html")
 
 # ── meta / discovery endpoints ────────────────────────────────────────────────
 
@@ -166,4 +174,6 @@ def api_artcc():
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
     return Response(traceback.format_exc(), mimetype="text/plain", status=500)
