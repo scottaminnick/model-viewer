@@ -237,6 +237,42 @@ def extract_points(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
         if np.isfinite(vals[i])
     ]
 
+def render_barbs_png(lat2d, lon2d, u2d, v2d, stride: int = 6) -> bytes:
+    """
+    Render wind barbs as a transparent PNG overlay.
+    u2d, v2d in m/s — converted to knots internally for standard barb increments.
+    stride: subsample every Nth grid point (6 ≈ 60 barbs across CONUS for RAP13).
+    """
+    import io
+    fig = plt.figure(figsize=(12, 6), dpi=150)
+    ax  = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(LON_MIN, LON_MAX)
+    ax.set_ylim(LAT_MIN, LAT_MAX)
+    ax.set_aspect("auto")
+    ax.axis("off")
+
+    lats  = lat2d[::stride, ::stride]
+    lons  = lon2d[::stride, ::stride]
+    u_kt  = u2d[::stride, ::stride] * 1.94384
+    v_kt  = v2d[::stride, ::stride] * 1.94384
+
+    ax.barbs(
+        lons, lats, u_kt, v_kt,
+        length=4.5,
+        linewidth=0.55,
+        color="#555555",
+        barbcolor="#555555",
+        flagcolor="#555555",
+        sizes=dict(emptybarb=0.12),
+        barb_increments=dict(half=5, full=10, flag=50),
+    )
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", transparent=True,
+                bbox_inches=None, pad_inches=0)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
 
 # ── generic TTL cache ─────────────────────────────────────────────────────────
 class TTLCache:
