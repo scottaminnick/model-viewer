@@ -132,20 +132,15 @@ def api_points(model_id, product_id, cycle_utc, fxx):
     return jsonify(result)
 
 @app.get("/api/barbs/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
+@app.get("/api/barbs/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_barbs(model_id, product_id, cycle_utc, fxx):
     prod = get_product(model_id, product_id)
     if not prod or not prod.supports_barbs:
         return Response("Product does not support barbs", status=404)
 
-    cache_key = (model_id, product_id, cycle_utc, fxx, "barbs")
-    cached = _IMAGE_CACHE.get(cache_key)
-    if cached:
-        return Response(cached, mimetype="image/png")
-
     cycle_dt = datetime.fromisoformat(cycle_utc)
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
     png = render_barbs_png(lat2d, lon2d, u2d, v2d)
-    _IMAGE_CACHE.set(cache_key, png)
     return Response(png, mimetype="image/png")
 
 # ── image metadata (bounds etc.) ──────────────────────────────────────────────
