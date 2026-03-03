@@ -137,16 +137,18 @@ def api_barbs(model_id, product_id, cycle_utc, fxx):
     if not prod or not prod.supports_barbs:
         return Response("Product does not support barbs", status=404)
 
-    cache_key = (model_id, product_id, cycle_utc, fxx, "barbs")
-    cached = IMAGE_CACHE.get(cache_key)
+    barbs_id = product_id + "_barbs"
+    cached = IMAGE_CACHE.get(model_id, barbs_id, cycle_utc, fxx, TTL)
     if cached:
-        return Response(cached, mimetype="image/png")
+        return Response(cached, mimetype="image/png",
+                        headers={"Cache-Control": f"public, max-age={TTL}"})
 
-    cycle_dt = datetime.fromisoformat(cycle_utc)
+    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
     png = render_barbs_png(lat2d, lon2d, u2d, v2d)
-    IMAGE_CACHE.set(cache_key, png, ttl=TTL)
-    return Response(png, mimetype="image/png")
+    IMAGE_CACHE.set(model_id, barbs_id, cycle_utc, fxx, png)
+    return Response(png, mimetype="image/png",
+                    headers={"Cache-Control": f"public, max-age={TTL}"})
 
 # ── image metadata (bounds etc.) ──────────────────────────────────────────────
 
