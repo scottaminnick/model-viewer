@@ -111,7 +111,7 @@ register(_SurfaceWindSpeed(
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],  # get_values() handles fetching directly
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
-    support_barbs=True,
+    supports_barbs=True,
 ))
 register(_SurfaceWindSpeed(
     model_id="hrrr", product_id="surface_wind",
@@ -119,7 +119,7 @@ register(_SurfaceWindSpeed(
     herbie_model="hrrr", herbie_product="sfc",
     searches=[],
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
-    support_barbs=True,
+    supports_barbs=True,
 ))
 
 
@@ -199,7 +199,7 @@ register(_Wind500mb(
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
-    support_barbs=True,
+    supports_barbs=True,
 ))
 register(_Wind500mb(
     model_id="hrrr", product_id="wind_500mb",
@@ -207,7 +207,7 @@ register(_Wind500mb(
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
-    support_barbs=True,
+    supports_barbs=True,
 ))
 
 
