@@ -57,6 +57,7 @@ _CLIP_IDX: dict = {}
 NAME_MAP = {
     "Temperature":           "T",
     "Dew point temperature": "Td",
+    "Relative Humidity":     "RH",   #RAP13 has RH instead of Td
     "U component of wind":   "U",
     "V component of wind":   "V",
 }
