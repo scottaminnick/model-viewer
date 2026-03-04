@@ -20,7 +20,7 @@ import matplotlib.colors as mcolors
 
 from products import ProductDef, register
 from renderer import herbie_fetch, extract_var, get_latlon
-
+from icing_threat import PRS_SEARCH
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Helper: build a ListedColormap + BoundaryNorm + legend from parallel lists
@@ -271,78 +271,36 @@ register(_MixHeight(
 ))
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  ICING THREAT — simplified CIP-like index   (RAP13 + HRRR)
-#
-#  Method: fetch cloud liquid water mixing ratio (CLWMR) and temperature
-#  at 850, 700, 600, 500 mb.  Icing index = fraction of levels where
-#  -20°C < T < 0°C AND CLWMR > 0.01 g/kg.
+#  ICING THREAT (RAP13 + HRRR)
 # ══════════════════════════════════════════════════════════════════════════════
-
 _ice_cmap, _ice_norm, _ice_legend = _scale(
-    bounds  = [0, 0.1, 0.25, 0.50, 0.75, 1.01],
-    colors  = ['#f7fbff','#bdd7e7','#6baed6','#2171b5','#08306b'],
-    labels  = ['None','Trace','Light','Moderate','Severe'],
+    bounds = [0.0, 0.35, 0.55, 0.75, 1.2],
+    colors = ['#f7fbff','#bdd7e7','#6baed6','#08306b'],
+    labels = ['None','Light (≥0.35)','Moderate (≥0.55)','Heavy (≥0.75)'],
 )
-
 @dataclass
-class _IcingThreat(ProductDef):
-    """
-    Simplified icing index: fraction of pressure levels with supercooled
-    liquid water (SLW) present (T in [-20,0]°C and CLWMR > threshold).
-    """
+class _Icing(ProductDef):
     def get_values(self, cycle_dt, fxx):
-        levels = [850, 700, 600, 500]
-        tag    = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_icing"
-        icing_count = None
-        lat2d = lon2d = None
+        from icing_threat import fetch_icing_arrays
+        lat2d, lon2d, score2d = fetch_icing_arrays(
+            self.herbie_model, self.herbie_product, cycle_dt, fxx
+        )
+        return lat2d, lon2d, score2d
 
-        for lev in levels:
-            try:
-                ds_t = herbie_fetch(
-                    self.herbie_model, self.herbie_product,
-                    cycle_dt, fxx,
-                    [f":TMP:{lev} mb:"],
-                    f"{tag}_{lev}t")
-                ds_c = herbie_fetch(
-                    self.herbie_model, self.herbie_product,
-                    cycle_dt, fxx,
-                    [f":CLWMR:{lev} mb:", f":CLMR:{lev} mb:"],
-                    f"{tag}_{lev}c")
-
-                temp_c = extract_var(ds_t, ["tmp","t"]) - 273.15
-                clwmr  = extract_var(ds_c, ["clwmr","clmr"]) * 1000.0  # kg/kg→g/kg
-
-                slw = ((temp_c > -20) & (temp_c < 0) & (clwmr > 0.01)).astype(float)
-
-                if icing_count is None:
-                    icing_count = slw
-                    lat2d, lon2d = get_latlon(ds_t)
-                else:
-                    icing_count = icing_count + slw
-            except Exception:
-                continue
-
-        if icing_count is None:
-            raise RuntimeError("Could not fetch any icing levels")
-
-        icing_index = np.clip(icing_count / len(levels), 0.0, 1.0)
-        return lat2d, lon2d, icing_index
-
-register(_IcingThreat(
+register(_Icing(
     model_id="rap13", product_id="icing",
-    label="Icing Threat (SLW Index)", units="index",
+    label="Icing Threat (Winter)", units="index",
     herbie_model="rap", herbie_product="awp130pgrb",
-    searches=[],
+    searches=[PRS_SEARCH],
     cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
 ))
-register(_IcingThreat(
+register(_Icing(
     model_id="hrrr", product_id="icing",
-    label="Icing Threat (SLW Index)", units="index",
+    label="Icing Threat (Winter)", units="index",
     herbie_model="hrrr", herbie_product="prs",
-    searches=[],
+    searches=[PRS_SEARCH],
     cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
 ))
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  FROUDE NUMBER — mountain wave indicator   (RAP13)
