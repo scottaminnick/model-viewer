@@ -253,6 +253,22 @@ register(_MixHeight(
     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
 ))
 
+    def get_point_values(self, cycle_dt, fxx):
+        from renderer import herbie_fetch, extract_var, get_latlon
+        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_mixhgt"
+        # Fetch HPBL
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx, self.searches, tag)
+        vals = extract_var(ds, ["hpbl","pblh","mix"])
+        agl_ft = np.maximum(vals, 0.0) * 3.28084
+        # Fetch orography from same product
+        ds_orog = herbie_fetch(self.herbie_model, self.herbie_product,
+                               cycle_dt, fxx, [":HGT:surface:"], tag + "_orog")
+        orog = extract_var(ds_orog, ["orog","hgt","z"])
+        terrain_ft = orog * 3.28084
+        lat2d, lon2d = get_latlon(ds)
+        return {"value": agl_ft, "msl_ft": agl_ft + terrain_ft}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  ICING THREAT — simplified CIP-like index   (RAP13 + HRRR)
 #
