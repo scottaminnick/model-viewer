@@ -109,9 +109,9 @@ def api_points(model_id, product_id, cycle_utc, fxx):
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     point_vals = prod.get_point_values(cycle_dt, fxx)
     lat2d, lon2d, _ = prod.get_values(cycle_dt, fxx)
-    valid_dt = (cycle_dt.replace(tzinfo=timezone.utc).isoformat(timespec="minutes")
-                if cycle_dt.tzinfo else
-                datetime.fromisoformat(cycle_utc).isoformat(timespec="minutes"))
+    from datetime import timedelta
+    valid_dt = (cycle_dt + timedelta(hours=fxx)).replace(tzinfo=timezone.utc)\
+               .isoformat(timespec="minutes").replace("+00:00", "Z")
     points = extract_points(lat2d, lon2d, point_vals, prod.stride)
     result = {
         "model_id":    model_id,
