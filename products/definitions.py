@@ -381,14 +381,14 @@ register(_Virga(
     model_id="rap13", product_id="virga",
     label="Virga Potential", units="%",
     herbie_model="rap", herbie_product="awp130pgrb",
-    searches=[SEARCH_RAP],
+    searches=[r"(?:TMP|DPT|UGRD|VGRD):(?:500|600|700|800|850) mb"],
     cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
 ))
 register(_Virga(
     model_id="hrrr", product_id="virga",
     label="Virga Potential", units="%",
     herbie_model="hrrr", herbie_product="prs",
-    searches=[SEARCH_HRRR],
+    searches=[r"(?:TMP|DPT|UGRD|VGRD):(?:500|550|600|650|700|750|800|850) mb"],
     cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
 ))
 
