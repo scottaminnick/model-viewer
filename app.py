@@ -102,21 +102,19 @@ def api_image(model_id, product_id, cycle_utc, fxx):
 def api_points(model_id, product_id, cycle_utc, fxx):
     """
     Return subsampled grid points for cursor-value display.
-    Same data as the image but as JSON {lat, lon, value}.
+    Same data as the image but as JSON {lat, lon, value, ...}.
     """
     cached = POINTS_CACHE.get(model_id, product_id, cycle_utc, fxx, TTL)
     if cached:
         return jsonify(cached)
-
     prod = get_product(model_id, product_id)
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
-    lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
-
+    point_vals = prod.get_point_values(cycle_dt, fxx)
+    lat2d, lon2d, _ = prod.get_values(cycle_dt, fxx)
     valid_dt = (cycle_dt.replace(tzinfo=timezone.utc).isoformat(timespec="minutes")
                 if cycle_dt.tzinfo else
                 datetime.fromisoformat(cycle_utc).isoformat(timespec="minutes"))
-
-    points = extract_points(lat2d, lon2d, vals2d, prod.stride)
+    points = extract_points(lat2d, lon2d, point_vals, prod.stride)
     result = {
         "model_id":    model_id,
         "product_id":  product_id,
