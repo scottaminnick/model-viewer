@@ -211,31 +211,23 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
 
 
 # ── point extractor ───────────────────────────────────────────────────────────
-def extract_points(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
-                   stride: int = 2) -> list[dict]:
+def extract_points(lat2d, lon2d, vals_dict: dict, stride: int) -> list:
     """
-    Subsample the grid and return a list of {lat, lon, value} dicts
-    covering the CONUS domain.  Used for cursor-sampling in the browser.
+    vals_dict: {"value": arr2d, "msl_ft": arr2d, ...}
+    Returns list of {lat, lon, value, msl_ft, ...}
     """
-    mask = (
-        (lat2d >= LAT_MIN) & (lat2d <= LAT_MAX) &
-        (lon2d >= LON_MIN) & (lon2d <= LON_MAX)
-    )
-    strided = np.zeros_like(mask, dtype=bool)
-    strided[::stride, ::stride] = True
-    mask = mask & strided
-
-    lats = lat2d[mask].ravel()
-    lons = lon2d[mask].ravel()
-    vals = vals2d[mask].ravel()
-
-    return [
-        {"lat": round(float(lats[i]), 3),
-         "lon": round(float(lons[i]), 3),
-         "value": round(float(vals[i]), 1)}
-        for i in range(len(lats))
-        if np.isfinite(vals[i])
-    ]
+    rows, cols = lat2d.shape
+    out = []
+    for r in range(0, rows, stride):
+        for c in range(0, cols, stride):
+            pt = {
+                "lat": round(float(lat2d[r, c]), 3),
+                "lon": round(float(lon2d[r, c]), 3),
+            }
+            for k, arr in vals_dict.items():
+                pt[k] = round(float(arr[r, c]), 1)
+            out.append(pt)
+    return out
 
 def render_barbs_png(lat2d, lon2d, u2d, v2d, stride: int = 6) -> bytes:
     """
