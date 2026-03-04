@@ -67,13 +67,12 @@ class ProductDef:
     _var_hints: list  = field(default_factory=list)
     _units_fn:  object = field(default=lambda v: v)
 
-def get_barb_data(self, cycle_dt: datetime, fxx: int):
-    """
-    Return (lat2d, lon2d, u_ms, v_ms) for wind barb rendering.
-    Override in subclasses that set supports_barbs=True.
-    """
-    raise NotImplementedError(f"{self.__class__.__name__} does not support barbs")
-
+    def get_barb_data(self, cycle_dt: datetime, fxx: int):
+        """
+        Return (lat2d, lon2d, u_ms, v_ms) for wind barb rendering.
+        Override in subclasses that set supports_barbs=True.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support barbs")
 
 # ── Registry ──────────────────────────────────────────────────────────────────
 # REGISTRY[model_id][product_id] = ProductDef
