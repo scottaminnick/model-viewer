@@ -74,6 +74,15 @@ class ProductDef:
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support barbs")
 
+    def get_point_values(self, cycle_dt: datetime, fxx: int) -> dict:
+        """
+        Return dict of named value arrays for cursor display.
+        Default: single 'value' key matching get_values() output.
+        Override in subclasses to expose multiple fields (e.g. AGL + MSL).
+        """
+        lat2d, lon2d, vals2d = self.get_values(cycle_dt, fxx)
+        return {"value": vals2d}
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 # REGISTRY[model_id][product_id] = ProductDef
 REGISTRY: dict[str, dict[str, ProductDef]] = {}
