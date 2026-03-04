@@ -238,21 +238,6 @@ class _MixHeight(ProductDef):
         lat2d, lon2d = get_latlon(ds)
         return lat2d, lon2d, np.maximum(vals, 0.0) * 3.28084
 
-register(_MixHeight(
-    model_id="rap13", product_id="mix_height",
-    label="Mixing Height (HPBL)", units="ft",
-    herbie_model="rap", herbie_product="awp130pgrb",
-    searches=[":HPBL:surface:"],
-    cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
-))
-register(_MixHeight(
-    model_id="hrrr", product_id="mix_height",
-    label="Mixing Height (HPBL)", units="ft",
-    herbie_model="hrrr", herbie_product="sfc",
-    searches=[":HPBL:surface:"],
-    cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
-))
-
     def get_point_values(self, cycle_dt, fxx):
         from renderer import herbie_fetch, extract_var, get_latlon
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_mixhgt"
@@ -268,6 +253,22 @@ register(_MixHeight(
         terrain_ft = orog * 3.28084
         lat2d, lon2d = get_latlon(ds)
         return {"value": agl_ft, "msl_ft": agl_ft + terrain_ft}
+
+
+register(_MixHeight(
+    model_id="rap13", product_id="mix_height",
+    label="Mixing Height (HPBL)", units="ft",
+    herbie_model="rap", herbie_product="awp130pgrb",
+    searches=[":HPBL:surface:"],
+    cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
+))
+register(_MixHeight(
+    model_id="hrrr", product_id="mix_height",
+    label="Mixing Height (HPBL)", units="ft",
+    herbie_model="hrrr", herbie_product="sfc",
+    searches=[":HPBL:surface:"],
+    cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
+))
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ICING THREAT — simplified CIP-like index   (RAP13 + HRRR)
