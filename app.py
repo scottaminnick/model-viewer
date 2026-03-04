@@ -145,7 +145,7 @@ def api_barbs(model_id, product_id, cycle_utc, fxx):
 
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
-    png = render_barbs_png(lat2d, lon2d, u2d, v2d)
+    png = render_barbs_png(lat2d, lon2d, u2d, v2d, stride=prod.barb_stride)
     IMAGE_CACHE.set(model_id, barbs_id, cycle_utc, fxx, png)
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
