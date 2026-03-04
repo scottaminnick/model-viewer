@@ -233,12 +233,16 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
 
 
 # ── point extractor ───────────────────────────────────────────────────────────
-def extract_points(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
+def extract_points(lat2d: np.ndarray, lon2d: np.ndarray,
+                   vals: np.ndarray | dict,
                    stride: int = 2) -> list[dict]:
     """
-    Subsample the grid and return a list of {lat, lon, value} dicts
-    covering the CONUS domain.  Used for cursor-sampling in the browser.
+    Subsample the grid and return a list of {lat, lon, value, ...} dicts.
+    vals may be a plain 2D array or a dict of named 2D arrays.
     """
+    if isinstance(vals, np.ndarray):
+        vals = {"value": vals}
+
     mask = (
         (lat2d >= LAT_MIN) & (lat2d <= LAT_MAX) &
         (lon2d >= LON_MIN) & (lon2d <= LON_MAX)
@@ -249,15 +253,18 @@ def extract_points(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
 
     lats = lat2d[mask].ravel()
     lons = lon2d[mask].ravel()
-    vals = vals2d[mask].ravel()
+    arrays = {k: arr[mask].ravel() for k, arr in vals.items()}
 
-    return [
-        {"lat": round(float(lats[i]), 3),
-         "lon": round(float(lons[i]), 3),
-         "value": round(float(vals[i]), 1)}
-        for i in range(len(lats))
-        if np.isfinite(vals[i])
-    ]
+    out = []
+    for i in range(len(lats)):
+        if not np.isfinite(arrays["value"][i]):
+            continue
+        pt = {"lat": round(float(lats[i]), 3),
+              "lon": round(float(lons[i]), 3)}
+        for k, arr in arrays.items():
+            pt[k] = round(float(arr[i]), 1)
+        out.append(pt)
+    return out
 
 
 # ── generic TTL cache ─────────────────────────────────────────────────────────
