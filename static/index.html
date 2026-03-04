@@ -248,29 +248,41 @@ function setBadge(t, c) {
 }
 
 function buildKdTree(pts) {
-  const arr = new Float32Array(pts.length * 3);
-  pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
-  pointsData = arr;
+    const arr = new Float32Array(pts.length * 3);
+    pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
+    pointsData = arr;
+    // Store MSL separately if present
+    if (pts.length && pts[0].msl_ft !== undefined) {
+        const msl = new Float32Array(pts.length);
+        pts.forEach((p, i) => { msl[i] = p.msl_ft; });
+        mslData = msl;
+    } else {
+        mslData = null;
+    }
 }
 
 function nearestValue(lat, lon) {
-  if (!pointsData) return null;
-  const n = pointsData.length / 3;
-  let best = Infinity, val = null;
-  for (let i = 0; i < n; i++) {
-    const d = (pointsData[i*3]-lat)**2 + (pointsData[i*3+1]-lon)**2;
-    if (d < best) { best = d; val = pointsData[i*3+2]; }
-  }
-  return val;
+    if (!pointsData) return null;
+    const n = pointsData.length / 3;
+    let best = Infinity, idx = 0;
+    for (let i = 0; i < n; i++) {
+        const d = (pointsData[i*3]-lat)**2 + (pointsData[i*3+1]-lon)**2;
+        if (d < best) { best = d; idx = i; }
+    }
+    return { value: pointsData[idx*3+2], msl: mslData ? mslData[idx] : null };
 }
 
 map.on("mousemove", e => {
-  const v = nearestValue(e.latlng.lat, e.latlng.lng);
-  if (v !== null) {
-    document.getElementById("cursor-val").textContent = v.toFixed(1);
-    document.getElementById("cursor-ll").textContent =
-      `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
-  }
+    const result = nearestValue(e.latlng.lat, e.latlng.lng);
+    if (result !== null) {
+        let display = result.value.toFixed(1);
+        if (result.msl !== null) {
+            display += ` AGL / ${result.msl.toFixed(0)} MSL`;
+        }
+        document.getElementById("cursor-val").textContent = display;
+        document.getElementById("cursor-ll").textContent =
+            `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
+    }
 });
 
 document.addEventListener("keydown", e => {
