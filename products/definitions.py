@@ -361,6 +361,72 @@ register(_Froude(
     cmap=_fr_cmap, norm=_fr_norm, legend=_fr_legend,
 ))
 
+# ── Virga ──────────────────────────────────────────────────────────────────
+
+_virga_cmap, _virga_norm, _virga_legend = _scale(
+    bounds = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0],
+    colors = ['#f7fbff','#c6dbef','#6baed6','#f16913','#cb181d'],
+    labels = ['None','Low (≥20%)','Moderate (≥40%)','High (≥60%)','Extreme (≥80%)'],
+)
+
+@dataclass
+class _Virga(ProductDef):
+    def get_values(self, cycle_dt, fxx):
+        from virga_threat import fetch_virga_arrays
+        return fetch_virga_arrays(
+            self.herbie_model, self.herbie_product, cycle_dt, fxx
+        )
+
+register(_Virga(
+    model_id="rap13", product_id="virga",
+    label="Virga Potential", units="%",
+    herbie_model="rap", herbie_product="awp130pgrb",
+    searches=[SEARCH_RAP],
+    cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
+))
+register(_Virga(
+    model_id="hrrr", product_id="virga",
+    label="Virga Potential", units="%",
+    herbie_model="hrrr", herbie_product="prs",
+    searches=[SEARCH_HRRR],
+    cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
+))
+
+# ── LLTI ───────────────────────────────────────────────────────────────────
+
+_llti_cmap, _llti_norm, _llti_legend = _scale(
+    bounds = [0.0, 25.0, 50.0, 75.0, 100.0],
+    colors = ['#006400','#FFD700','#FF8C00','#8B0000'],
+    labels = ['Low (<25)','Moderate (≥25)','High (≥50)','Extreme (≥75)'],
+)
+
+@dataclass
+class _LLTI(ProductDef):
+    sfc_product: str = ""
+    def get_values(self, cycle_dt, fxx):
+        from llti_threat import fetch_llti_arrays
+        return fetch_llti_arrays(
+            self.herbie_model, self.sfc_product,
+            self.herbie_product, cycle_dt, fxx
+        )
+
+register(_LLTI(
+    model_id="rap13", product_id="llti",
+    label="Low-Level Turbulence Index", units="index",
+    herbie_model="rap", herbie_product="awp130pgrb",
+    sfc_product="wrfsfc",
+    searches=[],
+    cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
+))
+register(_LLTI(
+    model_id="hrrr", product_id="llti",
+    label="Low-Level Turbulence Index", units="index",
+    herbie_model="hrrr", herbie_product="prs",
+    sfc_product="sfc",
+    searches=[],
+    cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
+))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TURBULENCE — Ellrod TI index   (RAP13 + HRRR)
