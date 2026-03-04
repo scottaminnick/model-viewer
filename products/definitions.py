@@ -278,6 +278,7 @@ _ice_cmap, _ice_norm, _ice_legend = _scale(
     colors = ['#f7fbff','#bdd7e7','#6baed6','#08306b'],
     labels = ['None','Light (≥0.35)','Moderate (≥0.55)','Heavy (≥0.75)'],
 )
+@dataclass
 class _Icing(ProductDef):        # ← this line is missing
     def get_values(self, cycle_dt, fxx):
         from icing_threat import fetch_icing_arrays
