@@ -78,6 +78,7 @@
     <div class="sidebar-section">
       <div class="sidebar-title">Layers</div>
       <label class="layer-toggle"><input type="checkbox" id="chk-roads"> Roads</label>
+      <label class="layer-toggle"><input type="checkbox" id="chk-terrain"> Terrain</label>
       <label class="layer-toggle"><input type="checkbox" id="chk-states" checked> States</label>
       <label class="layer-toggle"><input type="checkbox" id="chk-artcc"  checked> ARTCCs</label>
     </div>
@@ -100,12 +101,21 @@
 <script>
 const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
 let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
-let imageOverlay = null, barbOverlay = null, pointsData = null, curUnits = "";
+let imageOverlay = null, pointsData = null, curUnits = "";
 
 // Map
 const map = L.map("map").setView([39, -98], 4);
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 16 }).addTo(map);
+
+const darkGray = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri", maxZoom: 16 });
+
+const esriTerrain = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.7 });
+
+// Start with dark gray as default
+darkGray.addTo(map);
 
 const esriRoads = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
@@ -120,7 +130,18 @@ const artccLayer = L.geoJSON(null, { style: { color:"#f0a500", weight:1.2, fill:
 fetch("/api/artcc/boundaries").then(r => r.json()).then(gj => artccLayer.addData(gj));
 artccLayer.addTo(map);
 
-document.getElementById("chk-roads").addEventListener("change",  e => e.target.checked ? esriRoads.addTo(map)   : map.removeLayer(esriRoads));
+document.getElementById("chk-roads").addEventListener("change",   e => e.target.checked ? esriRoads.addTo(map)    : map.removeLayer(esriRoads));
+document.getElementById("chk-terrain").addEventListener("change", e => {
+  if (e.target.checked) {
+    map.removeLayer(darkGray);
+    esriTerrain.addTo(map);
+    if (imageOverlay) imageOverlay.addTo(map);
+    if (barbOverlay)  barbOverlay.addTo(map);
+  } else {
+    map.removeLayer(esriTerrain);
+    darkGray.addTo(map);
+  }
+});
 document.getElementById("chk-states").addEventListener("change", e => e.target.checked ? statesLayer.addTo(map) : map.removeLayer(statesLayer));
 document.getElementById("chk-artcc").addEventListener("change",  e => e.target.checked ? artccLayer.addTo(map)  : map.removeLayer(artccLayer));
 
@@ -212,15 +233,6 @@ async function loadImage(fxx) {
   const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
   imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, zIndex: 200 }).addTo(map);
-
-  if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
-  const mDef = registry.find(m => m.model_id === curModel);
-  const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
-  if (pDef && pDef.supports_barbs) {
-    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
-    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
-  }
-
   setBadge("100% ready", "#3fb950");
   // Points for cursor
   fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
@@ -233,56 +245,35 @@ async function loadImage(fxx) {
     });
 }
 
-// After setting the main image overlay:
-if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
-const mDef = registry.find(m => m.model_id === curModel);
-const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
-if (pDef && pDef.supports_barbs) {
-    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${curFxx}?t=${Date.now()}`;
-    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
-}
-  
 function setBadge(t, c) {
   const el = document.getElementById("ready-badge");
   el.textContent = t; el.style.color = c;
 }
 
 function buildKdTree(pts) {
-    const arr = new Float32Array(pts.length * 3);
-    pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
-    pointsData = arr;
-    // Store MSL separately if present
-    if (pts.length && pts[0].msl_ft !== undefined) {
-        const msl = new Float32Array(pts.length);
-        pts.forEach((p, i) => { msl[i] = p.msl_ft; });
-        mslData = msl;
-    } else {
-        mslData = null;
-    }
+  const arr = new Float32Array(pts.length * 3);
+  pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
+  pointsData = arr;
 }
 
 function nearestValue(lat, lon) {
-    if (!pointsData) return null;
-    const n = pointsData.length / 3;
-    let best = Infinity, idx = 0;
-    for (let i = 0; i < n; i++) {
-        const d = (pointsData[i*3]-lat)**2 + (pointsData[i*3+1]-lon)**2;
-        if (d < best) { best = d; idx = i; }
-    }
-    return { value: pointsData[idx*3+2], msl: mslData ? mslData[idx] : null };
+  if (!pointsData) return null;
+  const n = pointsData.length / 3;
+  let best = Infinity, val = null;
+  for (let i = 0; i < n; i++) {
+    const d = (pointsData[i*3]-lat)**2 + (pointsData[i*3+1]-lon)**2;
+    if (d < best) { best = d; val = pointsData[i*3+2]; }
+  }
+  return val;
 }
 
 map.on("mousemove", e => {
-    const result = nearestValue(e.latlng.lat, e.latlng.lng);
-    if (result !== null) {
-        let display = result.value.toFixed(1);
-        if (result.msl !== null) {
-            display += ` AGL / ${result.msl.toFixed(0)} MSL`;
-        }
-        document.getElementById("cursor-val").textContent = display;
-        document.getElementById("cursor-ll").textContent =
-            `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
-    }
+  const v = nearestValue(e.latlng.lat, e.latlng.lng);
+  if (v !== null) {
+    document.getElementById("cursor-val").textContent = v.toFixed(1);
+    document.getElementById("cursor-ll").textContent =
+      `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
+  }
 });
 
 document.addEventListener("keydown", e => {
