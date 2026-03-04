@@ -227,7 +227,17 @@ _mix_cmap, _mix_norm, _mix_legend = _scale(
 @dataclass
 class _MixHeight(ProductDef):
     _var_hints: list  = field(default_factory=lambda: ["hpbl","pblh","mix"])
-    _units_fn:  object = field(default=lambda v: np.maximum(v, 0.0) * 3.28084)
+    _units_fn:  object = field(default=lambda v: v)
+
+    def get_values(self, cycle_dt, fxx):
+        from renderer import herbie_fetch, extract_var, get_latlon
+        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_mixhgt"
+        ds = herbie_fetch(self.herbie_model, self.herbie_product,
+                          cycle_dt, fxx, self.searches, tag)
+        vals = extract_var(ds, ["hpbl","pblh","mix"])
+        lat2d, lon2d = get_latlon(ds)
+        return lat2d, lon2d, np.maximum(vals, 0.0) * 3.28084
+
 register(_MixHeight(
     model_id="rap13", product_id="mix_height",
     label="Mixing Height (HPBL)", units="ft",
@@ -242,7 +252,6 @@ register(_MixHeight(
     searches=[":HPBL:surface:"],
     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
 ))
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ICING THREAT — simplified CIP-like index   (RAP13 + HRRR)
