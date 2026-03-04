@@ -218,28 +218,26 @@ register(_Wind500mb(
 # ══════════════════════════════════════════════════════════════════════════════
 
 _mix_cmap, _mix_norm, _mix_legend = _scale(
-    bounds  = [0, 200, 500, 1000, 1500, 2000, 3000, 4000, 8000],
+    bounds  = [0, 650, 1650, 3300, 5000, 6600, 10000, 13000, 26000],
     colors  = ['#ffffcc','#d9f0a3','#addd8e','#78c679',
                '#41ab5d','#238443','#006837','#004529'],
-    labels  = ['<200 m','200–500 m','500–1000 m','1000–1500 m',
-               '1500–2000 m','2000–3000 m','3000–4000 m','≥4000 m'],
+    labels  = ['<650 ft','650–1650 ft','1650–3300 ft','3300–5000 ft',
+               '5000–6600 ft','6600–10000 ft','10000–13000 ft','≥13000 ft'],
 )
-
 @dataclass
 class _MixHeight(ProductDef):
     _var_hints: list  = field(default_factory=lambda: ["hpbl","pblh","mix"])
-    _units_fn:  object = field(default=lambda v: np.maximum(v, 0.0))
-
+    _units_fn:  object = field(default=lambda v: np.maximum(v, 0.0) * 3.28084)
 register(_MixHeight(
     model_id="rap13", product_id="mix_height",
-    label="Mixing Height (HPBL)", units="m",
+    label="Mixing Height (HPBL)", units="ft",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[":HPBL:surface:"],
     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
 ))
 register(_MixHeight(
     model_id="hrrr", product_id="mix_height",
-    label="Mixing Height (HPBL)", units="m",
+    label="Mixing Height (HPBL)", units="ft",
     herbie_model="hrrr", herbie_product="sfc",
     searches=[":HPBL:surface:"],
     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
