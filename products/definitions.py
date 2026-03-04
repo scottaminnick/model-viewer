@@ -120,6 +120,7 @@ register(_SurfaceWindSpeed(
     searches=[],
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
     supports_barbs=True,
+    barb_stride=24,
 ))
 
 
