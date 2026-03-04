@@ -104,7 +104,7 @@ let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx =
 let imageOverlay = null, barbOverlay = null, pointsData = null, mslData = null, curUnits = "", curValidUtc = "";
 
 // Map
-const map = L.map("map").setView([39, -98], 4);
+const map = L.map("map"), { keyboard: false}).setView([39, -98], 4);
 
 const darkGray = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
@@ -135,9 +135,10 @@ document.getElementById("chk-terrain").addEventListener("change", e => {
   if (e.target.checked) {
     map.removeLayer(darkGray);
     esriTerrain.addTo(map);
-    // Re-stack overlays above terrain
     if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay.addTo(map); }
-    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay.addTo(map);  }
+    if (typeof barbOverlay !== "undefined" && barbOverlay) {
+      map.removeLayer(barbOverlay); barbOverlay.addTo(map);
+    }
   } else {
     map.removeLayer(esriTerrain);
     darkGray.addTo(map);
