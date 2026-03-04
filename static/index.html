@@ -104,7 +104,7 @@ let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx =
 let imageOverlay = null, barbOverlay = null, pointsData = null, mslData = null, curUnits = "", curValidUtc = "";
 
 // Map
-const map = L.map("map"), { keyboard: false}).setView([39, -98], 4);
+const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
 
 const darkGray = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
