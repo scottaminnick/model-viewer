@@ -42,6 +42,7 @@ class ProductDef:
     render_mode: str = "fill"    # "fill" or "contour"
     stride:      int = 2         # point-sampling stride
     supports_barbs: bool = False
+    barb_stride: int = 6
 
     # Colormap — set by each product definition below
     cmap:   object = None
