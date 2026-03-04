@@ -51,7 +51,6 @@ def api_products():
     """Return all registered models and products for the UI dropdowns."""
     return jsonify(registry_json())
 
-
 @app.get("/api/status/<model_id>/<product_id>")
 def api_status(model_id, product_id):
     """Cycle availability for a model/product — drives the hour selector."""
