@@ -279,13 +279,14 @@ _ice_cmap, _ice_norm, _ice_legend = _scale(
     labels = ['None','Light (≥0.35)','Moderate (≥0.55)','Heavy (≥0.75)'],
 )
 @dataclass
-class _Icing(ProductDef):
-    def get_values(self, cycle_dt, fxx):
-        from icing_threat import fetch_icing_arrays
-        lat2d, lon2d, score2d = fetch_icing_arrays(
-            self.herbie_model, self.herbie_product, cycle_dt, fxx
-        )
-        return lat2d, lon2d, score2d
+def get_values(self, cycle_dt, fxx):
+    from icing_threat import fetch_icing_arrays
+    sfc = "sfc" if self.herbie_model == "hrrr" else "wrfsfc"
+    lat2d, lon2d, score2d = fetch_icing_arrays(
+        self.herbie_model, self.herbie_product, cycle_dt, fxx,
+        sfc_product=sfc
+    )
+    return lat2d, lon2d, score2d
 
 register(_Icing(
     model_id="rap13", product_id="icing",
