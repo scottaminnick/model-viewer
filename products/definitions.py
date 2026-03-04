@@ -209,6 +209,7 @@ register(_Wind500mb(
     searches=[],
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
     supports_barbs=True,
+    barb_stride=24,
 ))
 
 
