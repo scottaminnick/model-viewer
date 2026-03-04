@@ -165,6 +165,21 @@ def get_cycle_status(model_id: str, herbie_model: str, herbie_product: str,
     return result
 
 
+# ── Mercator helpers ──────────────────────────────────────────────────────────
+def _lat_to_merc(lat: np.ndarray) -> np.ndarray:
+    """
+    Convert geographic latitude (degrees) to Web Mercator y (unitless log scale).
+    This matches the projection Leaflet uses for imageOverlay, so rendered
+    features align correctly with tile layers and vector overlays.
+    """
+    lat_r = np.radians(np.clip(lat, -85.0, 85.0))
+    return np.log(np.tan(np.pi / 4 + lat_r / 2))
+
+# Pre-compute Mercator y limits once
+_MERC_YMIN = float(_lat_to_merc(np.array([LAT_MIN]))[0])
+_MERC_YMAX = float(_lat_to_merc(np.array([LAT_MAX]))[0])
+
+
 # ── PNG renderer ──────────────────────────────────────────────────────────────
 def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
                cmap: mcolors.ListedColormap,
@@ -172,7 +187,11 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
                render_mode: str = "fill") -> bytes:
     """
     Render a 2-D field to a transparent PNG that exactly covers
-    [LAT_MIN,LAT_MAX] x [LON_MIN,LON_MAX] — ready for L.imageOverlay.
+    [LAT_MIN,LAT_MAX] x [LON_MIN,LON_MAX] in Web Mercator projection,
+    ready for L.imageOverlay.
+
+    Rendering in Mercator y-space ensures features align with Leaflet's
+    tile layers — without this, higher-latitude features shift northward.
     """
     # Clip to CONUS domain
     col_mask = (lon2d[0, :] >= LON_MIN - 1) & (lon2d[0, :] <= LON_MAX + 1)
@@ -181,10 +200,13 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
     lat2d  = lat2d[np.ix_(row_mask, col_mask)]
     vals2d = vals2d[np.ix_(row_mask, col_mask)]
 
+    # Project latitudes to Mercator y
+    merc2d = _lat_to_merc(lat2d)
+
     fig = plt.figure(figsize=(18, 10), dpi=120)
     ax  = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(LON_MIN, LON_MAX)
-    ax.set_ylim(LAT_MIN, LAT_MAX)
+    ax.set_ylim(_MERC_YMIN, _MERC_YMAX)
     ax.set_aspect("auto")
     ax.axis("off")
 
@@ -192,13 +214,13 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
         warnings.simplefilter("ignore")
         if render_mode == "contour":
             levels = norm.boundaries
-            ax.contour(lon2d, lat2d, vals2d,
+            ax.contour(lon2d, merc2d, vals2d,
                        levels=levels, colors=["#ffffff"],
                        linewidths=1.2, alpha=0.85)
-            ax.contourf(lon2d, lat2d, vals2d,
+            ax.contourf(lon2d, merc2d, vals2d,
                         levels=levels, cmap=cmap, norm=norm, alpha=0.65)
         else:  # "fill"
-            ax.pcolormesh(lon2d, lat2d, vals2d,
+            ax.pcolormesh(lon2d, merc2d, vals2d,
                           cmap=cmap, norm=norm,
                           shading="nearest", rasterized=True)
 
@@ -211,60 +233,32 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
 
 
 # ── point extractor ───────────────────────────────────────────────────────────
-def extract_points(lat2d, lon2d, vals_dict: dict, stride: int) -> list:
+def extract_points(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
+                   stride: int = 2) -> list[dict]:
     """
-    vals_dict: {"value": arr2d, "msl_ft": arr2d, ...}
-    Returns list of {lat, lon, value, msl_ft, ...}
+    Subsample the grid and return a list of {lat, lon, value} dicts
+    covering the CONUS domain.  Used for cursor-sampling in the browser.
     """
-    rows, cols = lat2d.shape
-    out = []
-    for r in range(0, rows, stride):
-        for c in range(0, cols, stride):
-            pt = {
-                "lat": round(float(lat2d[r, c]), 3),
-                "lon": round(float(lon2d[r, c]), 3),
-            }
-            for k, arr in vals_dict.items():
-                pt[k] = round(float(arr[r, c]), 1)
-            out.append(pt)
-    return out
-
-def render_barbs_png(lat2d, lon2d, u2d, v2d, stride: int = 6) -> bytes:
-    """
-    Render wind barbs as a transparent PNG overlay.
-    u2d, v2d in m/s — converted to knots internally for standard barb increments.
-    stride: subsample every Nth grid point (6 ≈ 60 barbs across CONUS for RAP13).
-    """
-    import io
-    fig = plt.figure(figsize=(12, 6), dpi=150)
-    ax  = fig.add_axes([0, 0, 1, 1])
-    ax.set_xlim(LON_MIN, LON_MAX)
-    ax.set_ylim(LAT_MIN, LAT_MAX)
-    ax.set_aspect("auto")
-    ax.axis("off")
-
-    lats  = lat2d[::stride, ::stride]
-    lons  = lon2d[::stride, ::stride]
-    u_kt  = u2d[::stride, ::stride] * 1.94384
-    v_kt  = v2d[::stride, ::stride] * 1.94384
-
-    ax.barbs(
-        lons, lats, u_kt, v_kt,
-        length=4.5,
-        linewidth=0.55,
-        color="#555555",
-        barbcolor="#555555",
-        flagcolor="#555555",
-        sizes=dict(emptybarb=0.12),
-        barb_increments=dict(half=5, full=10, flag=50),
+    mask = (
+        (lat2d >= LAT_MIN) & (lat2d <= LAT_MAX) &
+        (lon2d >= LON_MIN) & (lon2d <= LON_MAX)
     )
+    strided = np.zeros_like(mask, dtype=bool)
+    strided[::stride, ::stride] = True
+    mask = mask & strided
 
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", transparent=True,
-                bbox_inches=None, pad_inches=0)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.read()
+    lats = lat2d[mask].ravel()
+    lons = lon2d[mask].ravel()
+    vals = vals2d[mask].ravel()
+
+    return [
+        {"lat": round(float(lats[i]), 3),
+         "lon": round(float(lons[i]), 3),
+         "value": round(float(vals[i]), 1)}
+        for i in range(len(lats))
+        if np.isfinite(vals[i])
+    ]
+
 
 # ── generic TTL cache ─────────────────────────────────────────────────────────
 class TTLCache:
@@ -297,3 +291,45 @@ class TTLCache:
 # Singletons shared across all products
 IMAGE_CACHE  = TTLCache()
 POINTS_CACHE = TTLCache()
+
+
+def render_barbs_png(lat2d: np.ndarray, lon2d: np.ndarray,
+                     u2d: np.ndarray, v2d: np.ndarray,
+                     stride: int = 6) -> bytes:
+    """
+    Render wind barbs as a transparent PNG overlay in Web Mercator projection.
+    u2d, v2d in m/s — converted to knots internally.
+    stride: subsample every Nth grid point.
+    """
+    lats  = lat2d[::stride, ::stride]
+    lons  = lon2d[::stride, ::stride]
+    u_kt  = u2d[::stride, ::stride] * 1.94384
+    v_kt  = v2d[::stride, ::stride] * 1.94384
+
+    # Project to Mercator y
+    merc  = _lat_to_merc(lats)
+
+    fig = plt.figure(figsize=(18, 10), dpi=150)
+    ax  = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(LON_MIN, LON_MAX)
+    ax.set_ylim(_MERC_YMIN, _MERC_YMAX)
+    ax.set_aspect("auto")
+    ax.axis("off")
+
+    ax.barbs(
+        lons, merc, u_kt, v_kt,
+        length=4.5,
+        linewidth=0.55,
+        color="#555555",
+        barbcolor="#555555",
+        flagcolor="#555555",
+        sizes=dict(emptybarb=0.12),
+        barb_increments=dict(half=5, full=10, flag=50),
+    )
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", transparent=True,
+                bbox_inches=None, pad_inches=0)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
