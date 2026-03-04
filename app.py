@@ -38,7 +38,6 @@ TTL = 600   # seconds — cache rendered images for 10 min
 def index():
     return send_from_directory("static", "index.html")
 
-
 # ── meta / discovery endpoints ────────────────────────────────────────────────
 
 @app.get("/health")
