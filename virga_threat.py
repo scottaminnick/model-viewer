@@ -7,6 +7,7 @@ Adapted from virga.py to support:
   - Full CONUS domain (not clipped to Colorado)
   - Both RAP13 and HRRR via herbie_model / prs_product params
   - Parameterized pressure levels (HRRR has 550/650/750 mb; RAP13 does not)
+  - RAP13 uses RH directly; HRRR computes RH from T+Td
   - Missing levels degrade gracefully (warning, not crash)
   - fetch_virga_arrays() returning numpy 2D arrays for the renderer
 
@@ -15,8 +16,6 @@ Science
 1. Upper saturated layer (700-500 mb): mean RH >= 80% over 200 mb depth
 2. Max 100 mb RH decrease in column (850-500 mb): evaporation zone
 3. virga_pct = RH decrease masked by upper cloud presence (0-100%)
-
-RH computed from T + Td via August-Roche-Magnus approximation.
 """
 
 import gc
@@ -24,7 +23,7 @@ import os
 import time
 import logging
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import numpy as np
 import pygrib
@@ -47,9 +46,9 @@ DEFAULT_STEP_RAP  = 2
 LEVELS_HRRR = [500, 550, 600, 650, 700, 750, 800, 850]
 LEVELS_RAP  = [500, 600, 700, 800, 850]
 
-# GRIB search — include all candidate levels; missing ones are skipped gracefully
+# GRIB searches — RAP13 uses RH instead of DPT
 SEARCH_HRRR = r"(?:TMP|DPT|UGRD|VGRD):(?:500|550|600|650|700|750|800|850) mb"
-SEARCH_RAP  = r"(?:TMP|DPT|UGRD|VGRD):(?:500|600|700|800|850) mb"
+SEARCH_RAP  = r"(?:TMP|RH|UGRD|VGRD):(?:500|600|700|800|850) mb"
 
 _CACHE: dict    = {}
 _CLIP_IDX: dict = {}
@@ -57,7 +56,7 @@ _CLIP_IDX: dict = {}
 NAME_MAP = {
     "Temperature":           "T",
     "Dew point temperature": "Td",
-    "Relative Humidity":     "RH",   #RAP13 has RH instead of Td
+    "Relative humidity":     "RH",   # RAP13 provides RH instead of Td
     "U component of wind":   "U",
     "V component of wind":   "V",
 }
@@ -88,17 +87,33 @@ def _clip(arr, clip_idx, step):
 
 
 # ---------------------------------------------------------------------------
+# Physics
+# ---------------------------------------------------------------------------
+
+def _rh_from_td(T_K, Td_K):
+    """August-Roche-Magnus approximation."""
+    T_C  = T_K  - 273.15
+    Td_C = Td_K - 273.15
+    e_T  = 6.112 * np.exp(17.67 * T_C  / (T_C  + 243.5))
+    e_Td = 6.112 * np.exp(17.67 * Td_C / (Td_C + 243.5))
+    return np.clip(100.0 * e_Td / e_T, 0.0, 100.0)
+
+
+# ---------------------------------------------------------------------------
 # GRIB read — single pass, lat/lon computed once
 # ---------------------------------------------------------------------------
 
 def _read_fields(path, levels_expected, step):
     """
-    Single-pass pygrib read. First match pays the pyproj cost; all others
-    use grb.values only. Missing levels are skipped with a warning.
+    Single-pass pygrib read.
+    - First match pays the pyproj cost for lat/lon; all others use grb.values.
+    - Accepts either Td (HRRR) or RH directly (RAP13).
+    - Returns rh dict keyed by level, ready for the science functions.
     """
     levels_set = frozenset(levels_expected)
     T  = {}
     Td = {}
+    RH = {}
     U  = {}
     V  = {}
     lat_out = lon_out = clip_idx = None
@@ -131,37 +146,33 @@ def _read_fields(path, levels_expected, step):
 
             if   var == "T":  T[lev]  = small
             elif var == "Td": Td[lev] = small
+            elif var == "RH": RH[lev] = small
             elif var == "U":  U[lev]  = small
             elif var == "V":  V[lev]  = small
     finally:
         grbs.close()
         gc.collect()
 
-    # Warn about missing levels but don't crash — RAP13 won't have 550/650/750
-    found_t  = set(T.keys())
-    found_td = set(Td.keys())
-    missing  = [l for l in levels_expected if l not in found_t or l not in found_td]
+    # Build unified RH dict — prefer direct RH, fall back to T+Td conversion
+    rh_out = {}
+    for lev in levels_expected:
+        if lev in RH:
+            rh_out[lev] = RH[lev]
+        elif lev in T and lev in Td:
+            rh_out[lev] = _rh_from_td(T[lev], Td[lev])
+
+    usable = sorted(rh_out.keys())
+
+    missing = [l for l in levels_expected if l not in rh_out]
     if missing:
-        logger.warning("virga: T/Td missing at levels %s — these will be skipped.", missing)
-
-    # Keep only levels where we have both T and Td
-    usable = sorted([l for l in levels_expected if l in found_t and l in found_td])
+        logger.warning("virga: RH unavailable at levels %s — skipping.", missing)
     if not usable:
-        raise ValueError("virga: no usable T/Td levels found — check search string.")
+        raise ValueError(
+            "virga: no usable RH levels found. "
+            "Check search string and NAME_MAP for this model/product."
+        )
 
-    return lat_out, lon_out, T, Td, U, V, usable
-
-
-# ---------------------------------------------------------------------------
-# Physics
-# ---------------------------------------------------------------------------
-
-def _rh(T_K, Td_K):
-    T_C  = T_K  - 273.15
-    Td_C = Td_K - 273.15
-    e_T  = 6.112 * np.exp(17.67 * T_C  / (T_C  + 243.5))
-    e_Td = 6.112 * np.exp(17.67 * Td_C / (Td_C + 243.5))
-    return np.clip(100.0 * e_Td / e_T, 0.0, 100.0)
+    return lat_out, lon_out, rh_out, U, V, usable
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +180,8 @@ def _rh(T_K, Td_K):
 # ---------------------------------------------------------------------------
 
 def _compute(herbie_model, prs_product, cycle, fxx, step):
-    levels    = LEVELS_HRRR if herbie_model == "hrrr" else LEVELS_RAP
-    search    = SEARCH_HRRR if herbie_model == "hrrr" else SEARCH_RAP
+    levels = LEVELS_HRRR if herbie_model == "hrrr" else LEVELS_RAP
+    search = SEARCH_HRRR if herbie_model == "hrrr" else SEARCH_RAP
 
     H = Herbie(cycle, model=herbie_model, product=prs_product,
                fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
@@ -182,14 +193,10 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
             f"{cycle} F{fxx:02d}"
         )
 
-    lat, lon, T, Td, U, V, usable = _read_fields(path, levels, step)
+    lat, lon, rh, U, V, usable = _read_fields(path, levels, step)
     shape = lat.shape
 
-    rh = {lev: _rh(T[lev], Td[lev]) for lev in usable}
-    del T, Td
-    gc.collect()
-
-    # 1. Upper saturated layer (700-500 mb)
+    # 1. Upper saturated layer (700-500 mb): mean RH >= 80% over 200 mb depth
     upper_levels = [l for l in usable if l <= 700]
     max_upper_rh = np.zeros(shape, dtype=np.float32)
     for lev_top in upper_levels:
@@ -200,7 +207,7 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
         max_upper_rh = np.maximum(max_upper_rh, mean_rh)
     upper_cloud = max_upper_rh >= 80.0
 
-    # 2. Max 100 mb RH decrease in column
+    # 2. Max 100 mb RH decrease in column (850-500 mb)
     max_rh_decrease = np.zeros(shape, dtype=np.float32)
     for lev_bot in sorted(usable, reverse=True):
         lev_top = lev_bot - 100
@@ -209,7 +216,7 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
         decrease = (rh[lev_bot] - rh[lev_top]).astype(np.float32)
         max_rh_decrease = np.maximum(max_rh_decrease, decrease)
 
-    # 3. Mask and output
+    # 3. Mask by upper cloud presence
     virga_pct = np.where(upper_cloud,
                          np.clip(max_rh_decrease, 0.0, 100.0),
                          0.0).astype(np.float32)
