@@ -384,13 +384,15 @@ def _read_rap_prs(path, transport_levels, clip_idx, step):
 def _compute_rap(sfc_product, prs_product, cycle_dt, fxx, step):
     transport_levels = TRANSPORT_LEVELS_RAP
 
-    logger.info("llti RAP13: downloading sfc fields (%s)...", sfc_product)
-    H_sfc = Herbie(cycle_dt, model="rap", product=sfc_product,
+    logger.info("llti RAP13: downloading sfc fields (wrfmsl full file)...")
+    H_sfc = Herbie(cycle_dt, model="rap", product="wrfmsl",
                    fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    result_sfc = H_sfc.download(searchString=_RAP_SFC_SEARCH)
-    sfc_path = Path(result_sfc) if result_sfc else None
-    if sfc_path is None or not sfc_path.exists():
-        raise FileNotFoundError(f"llti RAP13: sfc download failed for {sfc_product} F{fxx:02d}")
+    sfc_path = H_sfc.get_localFilePath()   # just get path, download below
+    if not sfc_path.exists():
+        H_sfc.download()                   # no searchString = full file
+    sfc_path = H_sfc.get_localFilePath()
+    if not sfc_path.exists():
+        raise FileNotFoundError(f"llti RAP13: wrfmsl download failed F{fxx:02d}")
 
     logger.info("llti RAP13: downloading prs fields (%s)...", prs_product)
     H_prs = Herbie(cycle_dt, model="rap", product=prs_product,
