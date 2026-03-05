@@ -388,22 +388,19 @@ def _read_rap_prs(path, transport_levels, clip_idx, step):
 def _compute_rap(sfc_product, prs_product, cycle_dt, fxx, step):
     transport_levels = TRANSPORT_LEVELS_RAP
 
-    logger.info("llti RAP13: downloading sfc fields (%s)...", sfc_product)
-    H_sfc = Herbie(cycle_dt, model="rap", product=sfc_product,
-                   fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    sfc_path = Path(H_sfc.download(searchString=_RAP_SFC_SEARCH))
-
-    logger.info("llti RAP13: downloading prs fields (%s)...", prs_product)
-    H_prs = Herbie(cycle_dt, model="rap", product=prs_product,
-                   fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    prs_path = Path(H_prs.download(searchString=_RAP_PRS_SEARCH))
+    logger.info("llti RAP13: downloading awp130pgrb (sfc + prs)...")
+    H = Herbie(cycle_dt, model="rap", product="awp130pgrb",
+               fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
+    H.download()
+    path = H.get_localFilePath()
+    if not path or not path.exists():
+        raise FileNotFoundError(f"llti RAP13: awp130pgrb download failed F{fxx:02d}")
 
     logger.info("llti RAP13: reading sfc fields...")
-    lat2d, lon2d, clip_idx, sfc = _read_rap_sfc(sfc_path, step)
+    lat2d, lon2d, clip_idx, sfc = _read_rap_sfc(path, step)
 
     logger.info("llti RAP13: reading prs fields...")
-    u_prs, v_prs, hgt_prs = _read_rap_prs(prs_path, transport_levels,
-                                            clip_idx, step)
+    u_prs, v_prs, hgt_prs = _read_rap_prs(path, transport_levels, clip_idx, step)
 
     hpbl_m  = sfc["HPBL"]
     orog_m  = sfc["OROG"]
