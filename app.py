@@ -206,6 +206,13 @@ def api_debug_inventory(model_id, product_id):
     inv = H.inventory()
     return Response(inv.to_string(), mimetype="text/plain")
 
+@app.get("/api/debug/rap-fields")
+def debug_rap_fields_route():
+    from datetime import datetime, timezone
+    from llti_threat import debug_rap_fields
+    debug_rap_fields(datetime(2026, 3, 5, 7), 1)
+    return "Check Railway logs"
+
 # ── error handler ─────────────────────────────────────────────────────────────
 
 @app.errorhandler(Exception)
