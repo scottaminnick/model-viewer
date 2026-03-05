@@ -414,7 +414,7 @@ register(_LLTI(
     model_id="rap13", product_id="llti",
     label="Low-Level Turbulence Index", units="index",
     herbie_model="rap", herbie_product="awp130pgrb",
-    sfc_product="wrfnat",
+    sfc_product="awp130pgrb",
     searches=[],
     cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
 ))
