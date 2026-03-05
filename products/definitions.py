@@ -429,65 +429,303 @@ register(_LLTI(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  TURBULENCE — Ellrod TI index   (RAP13 + HRRR)
+#  TURBULENCE — Ellrod TI1 index   (RAP13 + HRRR)
 #
-#  Ellrod TI1 = Vws * Def
-#  Vws = vertical wind shear (400–250mb layer)
-#  Def = horizontal deformation  (sqrt(DST² + DSH²))
+#  TI1 = VWS * DEF
+#
+#  VWS = vertical wind shear magnitude across the 300–250mb layer, s⁻¹
+#        = |ΔV| / Δz   where Δz is the actual geopotential height difference
+#
+#  DEF = total horizontal deformation, s⁻¹
+#        = sqrt( DST² + DSH² )
+#        DST = ∂u/∂x − ∂v/∂y   (stretching deformation)
+#        DSH = ∂v/∂x + ∂u/∂y   (shearing deformation)
+#        *** gradients must use physical grid spacing in meters ***
+#
+#  Result scaled by 1e7 to bring into display range (~0–40 for typical jets).
 # ══════════════════════════════════════════════════════════════════════════════
-
 _ti_cmap, _ti_norm, _ti_legend = _scale(
-    bounds  = [0, 4, 8, 12, 16, 20, 28, 40, 200],
-    colors  = ['#f7f7f7','#d9f0a3','#addd8e','#78c679',
-               '#41ab5d','#fd8d3c','#e31a1c','#800026'],
-    labels  = ['Neg','1 (Light)','2 (Light-Mod)','3 (Moderate)',
-               '4 (Mod-Sev)','5 (Severe)','6 (Extreme)','7 (Extreme+)'],
+    bounds=[0, 4, 8, 12, 16, 20, 28, 40, 200],
+    colors=['#f7f7f7', '#d9f0a3', '#addd8e', '#78c679',
+            '#41ab5d', '#fd8d3c', '#e31a1c', '#800026'],
+    labels=['Neg', '1 (Light)', '2 (Light-Mod)', '3 (Moderate)',
+            '4 (Mod-Sev)', '5 (Severe)', '6 (Extreme)', '7 (Extreme+)'],
 )
+
+
+def _compute_grid_spacing(lat2d, lon2d):
+    """
+    Estimate physical grid spacing (dy, dx) in meters from a 2-D lat/lon grid.
+
+    Uses centered finite differences across the whole grid then takes the mean,
+    which is robust for both the RAP13 Lambert-Conformal grid (~13.5 km) and
+    the HRRR grid (~3 km).  Works for any model without hardcoding constants.
+
+    Returns
+    -------
+    dy_m : float  – N–S grid spacing in metres
+    dx_m : float  – E–W grid spacing in metres
+    """
+    # Degrees → metres conversions
+    # 1° latitude  ≈ 111 320 m everywhere
+    # 1° longitude ≈ 111 320 m × cos(lat) (varies with latitude)
+    DEG_TO_M = 111_320.0
+
+    # Row-to-row spacing (latitude direction)
+    dlat = np.abs(np.diff(lat2d, axis=0))          # shape (ny-1, nx)
+    dy_m = float(np.mean(dlat)) * DEG_TO_M
+
+    # Column-to-column spacing (longitude direction), latitude-corrected
+    dlon = np.abs(np.diff(lon2d, axis=1))           # shape (ny, nx-1)
+    lat_mid = lat2d[:, :-1]                          # same shape for cos correction
+    dx_m = float(np.mean(dlon * np.cos(np.radians(lat_mid)))) * DEG_TO_M
+
+    return dy_m, dx_m
+
 
 @dataclass
 class _Turbulence(ProductDef):
-    """Ellrod TI — 300mb and 250mb U+V each fetched together."""
+    """
+    Ellrod TI1 — 300mb deformation × 300–250mb vertical wind shear.
+
+    Fixes vs. the previous version:
+      • np.gradient calls now include physical dy/dx spacing → correct s⁻¹ units
+      • dz is computed from actual fetched geopotential height fields, not
+        a hardcoded 1500 m constant
+    """
     def get_values(self, cycle_dt, fxx):
         tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_turb"
 
-        ds300 = herbie_fetch(self.herbie_model, self.herbie_product,
-                             cycle_dt, fxx,
-                             [":UGRD:300 mb:|:VGRD:300 mb:"],
-                             f"{tag}_uv300")
-        ds250 = herbie_fetch(self.herbie_model, self.herbie_product,
-                             cycle_dt, fxx,
-                             [":UGRD:250 mb:|:VGRD:250 mb:"],
-                             f"{tag}_uv250")
+        # ── fetch U/V at both levels ──────────────────────────────────────────
+        ds300_uv = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":UGRD:300 mb:|:VGRD:300 mb:"],
+                                f"{tag}_uv300")
+        ds250_uv = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":UGRD:250 mb:|:VGRD:250 mb:"],
+                                f"{tag}_uv250")
 
-        u300 = extract_var(ds300, ["ugrd", "u"])
-        v300 = extract_var(ds300, ["vgrd", "v"])
-        u250 = extract_var(ds250, ["ugrd", "u"])
-        v250 = extract_var(ds250, ["vgrd", "v"])
-        lat2d, lon2d = get_latlon(ds300)
+        # ── fetch geopotential height at both levels (needed for real dz) ────
+        ds300_z  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":HGT:300 mb:"],
+                                f"{tag}_z300")
+        ds250_z  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":HGT:250 mb:"],
+                                f"{tag}_z250")
 
-        dz = 1500.0
-        Vws = np.sqrt((u250-u300)**2 + (v250-v300)**2) / dz
+        # ── extract arrays ────────────────────────────────────────────────────
+        u300 = extract_var(ds300_uv, ["ugrd", "u", "UGRD"])
+        v300 = extract_var(ds300_uv, ["vgrd", "v", "VGRD"])
+        u250 = extract_var(ds250_uv, ["ugrd", "u", "UGRD"])
+        v250 = extract_var(ds250_uv, ["vgrd", "v", "VGRD"])
+        z300 = extract_var(ds300_z,  ["gh", "z", "hgt", "HGT", "HGHT"])
+        z250 = extract_var(ds250_z,  ["gh", "z", "hgt", "HGT", "HGHT"])
 
-        du_dx = np.gradient(u300, axis=1)
-        du_dy = np.gradient(u300, axis=0)
-        dv_dx = np.gradient(v300, axis=1)
-        dv_dy = np.gradient(v300, axis=0)
-        Def = np.sqrt((du_dx - dv_dy)**2 + (dv_dx + du_dy)**2)
+        lat2d, lon2d = get_latlon(ds300_uv)
 
-        TI = np.clip(Vws * Def * 1e7, 0, 200)
-        return lat2d, lon2d, TI
+        # ── grid spacing in metres ────────────────────────────────────────────
+        # Needed to convert np.gradient output from (m/s)/index → (m/s)/m = s⁻¹
+        dy_m, dx_m = _compute_grid_spacing(lat2d, lon2d)
+
+        # ── vertical wind shear (VWS) across the 300–250 mb layer ────────────
+        # dz: actual geopotential height difference between 250 and 300 mb
+        # (positive because 250mb is always above 300mb → z250 > z300)
+        dz = z250 - z300                                # metres, 2-D field
+        dz = np.maximum(dz, 100.0)                      # guard against bad data
+
+        delta_u = u250 - u300
+        delta_v = v250 - v300
+        # |ΔV| / Δz → s⁻¹
+        VWS = np.sqrt(delta_u**2 + delta_v**2) / dz
+
+        # ── total horizontal deformation (DEF) at 300 mb ─────────────────────
+        # np.gradient with explicit spacing → correct physical units (s⁻¹)
+        du_dx = np.gradient(u300, dx_m, axis=1)         # ∂u/∂x
+        du_dy = np.gradient(u300, dy_m, axis=0)         # ∂u/∂y
+        dv_dx = np.gradient(v300, dx_m, axis=1)         # ∂v/∂x
+        dv_dy = np.gradient(v300, dy_m, axis=0)         # ∂v/∂y
+
+        DST = du_dx - dv_dy                             # stretching deformation
+        DSH = dv_dx + du_dy                             # shearing deformation
+        DEF = np.sqrt(DST**2 + DSH**2)                  # total deformation, s⁻¹
+
+        # ── Ellrod TI1 ────────────────────────────────────────────────────────
+        # VWS (s⁻¹) × DEF (s⁻¹) → s⁻²; scale × 1e7 → display range ~0–40
+        TI1 = np.clip(VWS * DEF * 1e7, 0, 200)
+
+        return lat2d, lon2d, TI1
+
 
 register(_Turbulence(
     model_id="rap13", product_id="turbulence",
-    label="Turbulence — Ellrod TI (300–250mb)", units="TI",
+    label="Turbulence — Ellrod TI1 (300–250mb)", units="TI",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
     cmap=_ti_cmap, norm=_ti_norm, legend=_ti_legend,
 ))
 register(_Turbulence(
     model_id="hrrr", product_id="turbulence",
-    label="Turbulence — Ellrod TI (300–250mb)", units="TI",
+    label="Turbulence — Ellrod TI1 (300–250mb)", units="TI",
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
     cmap=_ti_cmap, norm=_ti_norm, legend=_ti_legend,
+))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  TURBULENCE — Stability-Weighted Ellrod   (RAP13 + HRRR)
+#
+#  TI_Ri = TI1 × max( −ln(Ri), 0 )
+#
+#  Richardson number (bulk, 300–250mb layer):
+#    N²  = (g / θ_mean) × (Δθ / Δz)     Brunt-Väisälä frequency squared
+#    VWS² = |ΔV|² / Δz²                  as in TI1
+#    Ri   = N² / VWS²
+#
+#  Weight behaviour:
+#    Ri < 0.25  →  −ln(Ri) > 1.39  →  signal AMPLIFIED (dynamic instability)
+#    Ri = 1.0   →  −ln(Ri) = 0     →  signal ZEROED (neutral stability)
+#    Ri > 1.0   →  weight  < 0     →  clipped to 0 (stable, no signal)
+#
+#  Original concept from four_level_ellrod_siphon.py (R. Connell, AWC).
+#  Adapted to RAP13/HRRR Herbie pipeline by removing MetPy unit system
+#  and computing bulk Ri over the same 300–250mb layer used for TI1.
+# ══════════════════════════════════════════════════════════════════════════════
+_ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
+    bounds=[0, 4, 8, 12, 16, 20, 28, 40, 200],
+    colors=['#f7f7f7', '#fec44f', '#fe9929', '#ec7014',
+            '#cc4c02', '#993404', '#662506', '#3d0000'],
+    labels=['Neg', '1 (Light)', '2 (Light-Mod)', '3 (Moderate)',
+            '4 (Mod-Sev)', '5 (Severe)', '6 (Extreme)', '7 (Extreme+)'],
+)
+
+
+@dataclass
+class _TurbulenceRi(ProductDef):
+    """
+    Stability-Weighted Ellrod  =  TI1 × max(−ln(Ri), 0)
+
+    Uses the same 300–250mb layer as TI1.  Richardson number is computed
+    from potential-temperature gradient and wind shear across that same
+    layer, so TI1 and Ri are physically consistent with each other.
+
+    Extra GRIB messages vs. TI1: T at 300mb and 250mb only.
+    Z at 300/250mb is already fetched for the TI1 dz correction.
+    """
+    def get_values(self, cycle_dt, fxx):
+        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_turb_ri"
+
+        # ── fetch U/V ─────────────────────────────────────────────────────────
+        ds300_uv = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":UGRD:300 mb:|:VGRD:300 mb:"],
+                                f"{tag}_uv300")
+        ds250_uv = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":UGRD:250 mb:|:VGRD:250 mb:"],
+                                f"{tag}_uv250")
+
+        # ── fetch geopotential height ─────────────────────────────────────────
+        ds300_z  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":HGT:300 mb:"],
+                                f"{tag}_z300")
+        ds250_z  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":HGT:250 mb:"],
+                                f"{tag}_z250")
+
+        # ── fetch temperature (needed for θ → N² → Ri) ───────────────────────
+        ds300_t  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":TMP:300 mb:"],
+                                f"{tag}_t300")
+        ds250_t  = herbie_fetch(self.herbie_model, self.herbie_product,
+                                cycle_dt, fxx,
+                                [":TMP:250 mb:"],
+                                f"{tag}_t250")
+
+        # ── extract arrays ────────────────────────────────────────────────────
+        u300 = extract_var(ds300_uv, ["ugrd", "u", "UGRD"])
+        v300 = extract_var(ds300_uv, ["vgrd", "v", "VGRD"])
+        u250 = extract_var(ds250_uv, ["ugrd", "u", "UGRD"])
+        v250 = extract_var(ds250_uv, ["vgrd", "v", "VGRD"])
+        z300 = extract_var(ds300_z,  ["gh", "z", "hgt", "HGT", "HGHT"])
+        z250 = extract_var(ds250_z,  ["gh", "z", "hgt", "HGT", "HGHT"])
+        t300 = extract_var(ds300_t,  ["t", "tmp", "TMP", "TEMP"])   # Kelvin
+        t250 = extract_var(ds250_t,  ["t", "tmp", "TMP", "TEMP"])   # Kelvin
+
+        lat2d, lon2d = get_latlon(ds300_uv)
+
+        # ── grid spacing ──────────────────────────────────────────────────────
+        dy_m, dx_m = _compute_grid_spacing(lat2d, lon2d)
+
+        # ── vertical layer thickness ──────────────────────────────────────────
+        dz = z250 - z300                                # metres, 2-D
+        dz = np.maximum(dz, 100.0)                      # guard against bad data
+
+        # ── TI1 (same arithmetic as _Turbulence) ─────────────────────────────
+        delta_u = u250 - u300
+        delta_v = v250 - v300
+        VWS     = np.sqrt(delta_u**2 + delta_v**2) / dz   # s⁻¹
+
+        du_dx = np.gradient(u300, dx_m, axis=1)
+        du_dy = np.gradient(u300, dy_m, axis=0)
+        dv_dx = np.gradient(v300, dx_m, axis=1)
+        dv_dy = np.gradient(v300, dy_m, axis=0)
+        DEF   = np.sqrt((du_dx - dv_dy)**2 + (dv_dx + du_dy)**2)  # s⁻¹
+
+        TI1 = VWS * DEF * 1e7                          # unclipped here — clip after weighting
+
+        # ── Richardson number (bulk, 300–250mb layer) ─────────────────────────
+        # Potential temperature  θ = T × (1000 / P)^(R/Cp)   R/Cp ≈ 0.2857
+        theta300 = t300 * (1000.0 / 300.0) ** 0.2857
+        theta250 = t250 * (1000.0 / 250.0) ** 0.2857
+
+        # Brunt-Väisälä frequency squared
+        # N² = (g / θ_mean) × (Δθ / Δz)
+        # A positive dθ/dz means the atmosphere is statically stable (normal),
+        # so N² > 0 in almost all upper-level situations.
+        g           = 9.81                              # m s⁻²
+        theta_mean  = (theta300 + theta250) / 2.0
+        dtheta_dz   = (theta250 - theta300) / dz       # K m⁻¹
+        N2          = (g / theta_mean) * dtheta_dz     # s⁻²
+
+        # Wind shear magnitude squared (same ΔV already computed above)
+        VWS2 = np.maximum(VWS**2, 1e-20)               # guard divide-by-zero
+
+        # Bulk Ri = N² / |VWS|²
+        # Clip N² at 0 before dividing — negative N² means absolute instability,
+        # which would give negative Ri; those regions get Ri_safe → 0.01 → large
+        # positive weight, but that's physically appropriate (very unstable).
+        Ri = np.maximum(N2, 0.0) / VWS2
+
+        # ── stability weight  max( −ln(Ri), 0 ) ──────────────────────────────
+        # Ri_safe prevents log(0) or log(negative); floor at 0.01 means the
+        # maximum possible weight is −ln(0.01) ≈ 4.6 (amplification cap).
+        Ri_safe = np.clip(Ri, 0.01, None)
+        weight  = np.maximum(-np.log(Ri_safe), 0.0)
+
+        # ── stability-weighted TI ─────────────────────────────────────────────
+        TI_Ri = np.clip(TI1 * weight, 0, 200)
+
+        return lat2d, lon2d, TI_Ri
+
+
+register(_TurbulenceRi(
+    model_id="rap13", product_id="turbulence_ri",
+    label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
+    herbie_model="rap", herbie_product="awp130pgrb",
+    searches=[],
+    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
+))
+register(_TurbulenceRi(
+    model_id="hrrr", product_id="turbulence_ri",
+    label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
+    herbie_model="hrrr", herbie_product="prs",
+    searches=[],
+    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
 ))
