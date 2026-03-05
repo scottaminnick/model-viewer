@@ -184,7 +184,8 @@ _MERC_YMAX = float(_lat_to_merc(np.array([LAT_MAX]))[0])
 def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
                cmap: mcolors.ListedColormap,
                norm: mcolors.BoundaryNorm,
-               render_mode: str = "fill") -> bytes:
+               render_mode: str = "fill",
+               contour_overlay: dict | None = None) -> bytes:
     """
     Render a 2-D field to a transparent PNG that exactly covers
     [LAT_MIN,LAT_MAX] x [LON_MIN,LON_MAX] in Web Mercator projection,
@@ -224,6 +225,30 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
                           cmap=cmap, norm=norm,
                           shading="nearest", rasterized=True)
 
+    # ── optional contour overlay (e.g. height lines) ──────────────────────
+    if contour_overlay is not None:
+        ov = contour_overlay
+        # Project overlay lat grid to Mercator y (may differ from fill grid)
+        ov_merc = _lat_to_merc(ov["lat2d"])
+        # Clip overlay to CONUS domain
+        ov_col = (ov["lon2d"][0, :] >= LON_MIN-1) & (ov["lon2d"][0, :] <= LON_MAX+1)
+        ov_row = (ov["lat2d"][:, 0] >= LAT_MIN-1) & (ov["lat2d"][:, 0] <= LAT_MAX+1)
+        ov_lon  = ov["lon2d"][np.ix_(ov_row, ov_col)]
+        ov_merc = ov_merc[np.ix_(ov_row, ov_col)]
+        ov_data = ov["data"][np.ix_(ov_row, ov_col)]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cs = ax.contour(
+                ov_lon, ov_merc, ov_data,
+                levels=ov.get("levels", 10),
+                colors=ov.get("color", "#333333"),
+                linewidths=ov.get("linewidths", 1.0),
+                alpha=ov.get("alpha", 0.80),
+            )
+            if ov.get("label_fmt"):
+                ax.clabel(cs, inline=True, fontsize=5,
+                          fmt=ov["label_fmt"], colors=ov.get("color", "#333333"))             
+                 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", transparent=True,
                 bbox_inches=None, pad_inches=0, dpi=120)
