@@ -201,7 +201,6 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
     upper_levels = [l for l in usable if l <= 700]
     max_upper_rh = np.zeros(shape, dtype=np.float32)
     for lev_top in upper_levels:
-        window = [l for l in upper_levels if lev_top <= l <= lev_top + 200]
         window = [l for l in usable if lev_top <= l <= lev_top + 200]
         if len(window) < 2:
             continue
@@ -215,11 +214,6 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
     # "top" is 100 mb above "bottom". A positive value indicates
     # drying with descent (favorable for evaporative virga).
     max_rh_decrease = np.zeros(shape, dtype=np.float32)
-    for lev_bot in sorted(usable, reverse=True):
-        lev_top = lev_bot - 100
-        if lev_top not in rh:
-            continue
-        decrease = (rh[lev_bot] - rh[lev_top]).astype(np.float32)
     level_pairs = [(lev_top, lev_top + 100)
                    for lev_top in sorted(usable)
                    if (lev_top + 100) in rh]
