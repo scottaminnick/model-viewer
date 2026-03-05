@@ -52,8 +52,7 @@ TRANSPORT_LEVELS_RAP  = [950, 925, 900, 850, 800, 750, 700]
 # RAP13 batch GRIB searches
 _RAP_SFC_SEARCH = (
     r":(?:TMP|DPT|HPBL|TCDC):(?:2 m above ground|surface|entire atmosphere):"
-    r"|:(?:UGRD|VGRD):10 m above ground:"
-    r"|:HGT:surface:"
+    r"|:(?:UGRD|VGRD|HGT):10 m above ground:"
 )
 _RAP_PRS_LEVELS = "(?:950|925|900|850|800|750|700)"
 _RAP_PRS_SEARCH = rf":(?:UGRD|VGRD|HGT):{_RAP_PRS_LEVELS} mb:"
@@ -301,29 +300,37 @@ def _read_rap_sfc(path, step):
             key = _SFC_NAME_MAP.get(grb.name)
             if key is None:
                 continue
-    # ... typeOfLevel checks ...
-        if key in out:
-            continue
+            # Disambiguate T2m vs surface HGT vs 10m winds by typeOfLevel
+            if grb.name == "Temperature" and grb.typeOfLevel != "heightAboveGround":
+                continue
+            if grb.name in ("U component of wind", "V component of wind"):
+                if grb.typeOfLevel != "heightAboveGround" or grb.level != 10:
+                    continue
+            if grb.name in ("Geopotential Height", "Geopotential height"):
+                if grb.typeOfLevel != "surface":
+                    continue
+            if key in out:
+                continue  # already have this field
 
-        try:
-            if clip_idx is None:
-                lat2d, lon2d = grb.latlons()
-                data = grb.values
-                lon2d    = np.where(lon2d > 180, lon2d - 360, lon2d)
-                clip_idx = _get_clip_idx(lat2d, lon2d)
-                r0, r1, c0, c1 = clip_idx
-                lat_out  = lat2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
-                lon_out  = lon2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
-                del lat2d, lon2d
-            else:
-                data = grb.values
-        except (RuntimeError, ValueError):
-            logger.warning("llti RAP13 sfc: skipping message %s lev=%s (unsupported grid)",
-                           grb.name, getattr(grb, "level", "?"))
-            continue
+            try:
+                if clip_idx is None:
+                    lat2d, lon2d = grb.latlons()
+                    data = grb.values
+                    lon2d    = np.where(lon2d > 180, lon2d - 360, lon2d)
+                    clip_idx = _get_clip_idx(lat2d, lon2d)
+                    r0, r1, c0, c1 = clip_idx
+                    lat_out  = lat2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
+                    lon_out  = lon2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
+                    del lat2d, lon2d
+                else:
+                    data = grb.values
+            except (RuntimeError, ValueError):
+                logger.warning("llti RAP13 sfc: skipping %s lev=%s (unsupported grid)",
+                               grb.name, getattr(grb, "level", "?"))
+                continue
 
-        out[key] = _clip(data, clip_idx, step)
-        del data
+            out[key] = _clip(data, clip_idx, step)
+            del data
     finally:
         grbs.close()
         gc.collect()
@@ -381,24 +388,16 @@ def _read_rap_prs(path, transport_levels, clip_idx, step):
 def _compute_rap(sfc_product, prs_product, cycle_dt, fxx, step):
     transport_levels = TRANSPORT_LEVELS_RAP
 
-    logger.info("llti RAP13: downloading sfc fields (wrfmsl full file)...")
-    H_sfc = Herbie(cycle_dt, model="rap", product="wrfmsl",
+    logger.info("llti RAP13: downloading sfc fields (%s)...", sfc_product)
+    H_sfc = Herbie(cycle_dt, model="rap", product=sfc_product,
                    fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    sfc_path = H_sfc.get_localFilePath()   # just get path, download below
-    if not sfc_path.exists():
-        H_sfc.download()                   # no searchString = full file
-    sfc_path = H_sfc.get_localFilePath()
-    if not sfc_path.exists():
-        raise FileNotFoundError(f"llti RAP13: wrfmsl download failed F{fxx:02d}")
+    sfc_path = Path(H_sfc.download(searchString=_RAP_SFC_SEARCH))
 
     logger.info("llti RAP13: downloading prs fields (%s)...", prs_product)
     H_prs = Herbie(cycle_dt, model="rap", product=prs_product,
                    fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    result_prs = H_prs.download(searchString=_RAP_PRS_SEARCH)
-    prs_path = Path(result_prs) if result_prs else None
-    if prs_path is None or not prs_path.exists():
-        raise FileNotFoundError(f"llti RAP13: prs download failed for {prs_product} F{fxx:02d}")
-  
+    prs_path = Path(H_prs.download(searchString=_RAP_PRS_SEARCH))
+
     logger.info("llti RAP13: reading sfc fields...")
     lat2d, lon2d, clip_idx, sfc = _read_rap_sfc(sfc_path, step)
 
