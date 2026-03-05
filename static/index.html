@@ -260,6 +260,12 @@ async function loadImage(fxx) {
     });
 }
 
+function setBadge(t, c) {
+  const el = document.getElementById("ready-badge");
+  el.textContent = t; el.style.color = c;
+}
+
+  
 function buildKdTree(pts) {
   const arr = new Float32Array(pts.length * 3);
   pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
