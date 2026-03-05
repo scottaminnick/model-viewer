@@ -6,6 +6,8 @@ Generic routes driven by the ProductRegistry.
 import threading
 import traceback
 import logging
+import py_compile
+from pathlib import Path
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, Response, send_from_directory, request
@@ -25,6 +27,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+def _preflight_compile():
+    """Fail fast on malformed Python files (e.g., pasted diff hunks in deploy artifact)."""
+    for rel in ("llti_threat.py", "virga_threat.py", "products/definitions.py"):
+        py_compile.compile(str(Path(__file__).with_name(rel) if "/" not in rel else Path(__file__).parent / rel), doraise=True)
+
+_preflight_compile()
 
 # Kick off ARTCC boundary download in background
 threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
