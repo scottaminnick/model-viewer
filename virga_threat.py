@@ -197,10 +197,12 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
     shape = lat.shape
 
     # 1. Upper saturated layer (700-500 mb): mean RH >= 80% over 200 mb depth
+    # Keep windows truly 200 mb deep when possible (e.g. 550-750 on HRRR).
     upper_levels = [l for l in usable if l <= 700]
     max_upper_rh = np.zeros(shape, dtype=np.float32)
     for lev_top in upper_levels:
         window = [l for l in upper_levels if lev_top <= l <= lev_top + 200]
+        window = [l for l in usable if lev_top <= l <= lev_top + 200]
         if len(window) < 2:
             continue
         mean_rh = np.mean([rh[l] for l in window], axis=0)
@@ -208,12 +210,20 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
     upper_cloud = max_upper_rh >= 80.0
 
     # 2. Max 100 mb RH decrease in column (850-500 mb)
+    #
+    # Match the legacy virga equation: RH(top) - RH(bottom), where
+    # "top" is 100 mb above "bottom". A positive value indicates
+    # drying with descent (favorable for evaporative virga).
     max_rh_decrease = np.zeros(shape, dtype=np.float32)
     for lev_bot in sorted(usable, reverse=True):
         lev_top = lev_bot - 100
         if lev_top not in rh:
+    for lev_top in sorted(usable):
+        lev_bot = lev_top + 100
+        if lev_bot not in rh:
             continue
         decrease = (rh[lev_bot] - rh[lev_top]).astype(np.float32)
+        decrease = (rh[lev_top] - rh[lev_bot]).astype(np.float32)
         max_rh_decrease = np.maximum(max_rh_decrease, decrease)
 
     # 3. Mask by upper cloud presence
