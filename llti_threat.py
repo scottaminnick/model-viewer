@@ -313,15 +313,16 @@ def _read_rap_sfc(path, step):
                 continue  # already have this field
 
             if clip_idx is None:
-                data, lat2d, lon2d = grb.data()
+                lat2d, lon2d = grb.latlons()
+                data = grb.values
                 lon2d    = np.where(lon2d > 180, lon2d - 360, lon2d)
                 clip_idx = _get_clip_idx(lat2d, lon2d)
                 r0, r1, c0, c1 = clip_idx
                 lat_out  = lat2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
                 lon_out  = lon2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
-                del lat2d, lon2d
-            else:
-                data = grb.values
+            del lat2d, lon2d
+        else:
+            data = grb.values
 
             out[key] = _clip(data, clip_idx, step)
             del data
