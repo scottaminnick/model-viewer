@@ -47,7 +47,7 @@ DEFAULT_STEP_RAP  = 2
 # Transport wind pressure levels, low -> high AGL
 # RAP13 conservatively skips 875/825 mb
 TRANSPORT_LEVELS_HRRR = [950, 925, 900, 875, 850, 825, 800, 750, 700]
-TRANSPORT_LEVELS_RAP  = [950, 925, 900, 850, 800, 750, 700]
+TRANSPORT_LEVELS_RAP  = [950, 925, 900, 875, 850, 825, 800, 750, 700]
 
 # RAP13 batch GRIB searches
 _RAP_SFC_SEARCH = (
@@ -273,14 +273,14 @@ def _compute_hrrr(cycle_dt, fxx, step):
 
 # GRIB name -> field key mapping for sfc fields
 _SFC_NAME_MAP = {
-    "Temperature":              "T2m",
-    "Dew point temperature":    "Td2m",
-    "Planetary boundary layer height": "HPBL",
-    "Geopotential Height":      "OROG",   # HGT:surface
-    "U component of wind":      "U10",
-    "V component of wind":      "V10",
-    "Total Cloud Cover":        "TCC",
-    "Total cloud cover":        "TCC",
+    "2 metre temperature":        "T2m",    # was "Temperature"
+    "2 metre dewpoint temperature": "Td2m", # was "Dew point temperature"
+    "Geopotential height":        "HPBL",   # planetaryBoundaryLayer lev=0
+    "Orography":                  "OROG",   # was "Geopotential Height" surface
+    "U component of wind":        "U10",
+    "V component of wind":        "V10",
+    "Total Cloud Cover":          "TCC",
+    "Total cloud cover":          "TCC",
 }
 
 # For prs fields
@@ -301,16 +301,25 @@ def _read_rap_sfc(path, step):
             if key is None:
                 continue
             # Disambiguate T2m vs surface HGT vs 10m winds by typeOfLevel
-            if grb.name == "Temperature" and grb.typeOfLevel != "heightAboveGround":
-                continue
+            # T2m
+            if grb.name == "2 metre temperature":
+                pass  # typeOfLevel already heightAboveGround lev=2, no extra check needed
+
+            # HPBL — Geopotential height at planetaryBoundaryLayer
+            if grb.name == "Geopotential height":
+                if grb.typeOfLevel == "planetaryBoundaryLayer":
+                    key = "HPBL"
+                else:
+                    continue  # skip all other Geopotential height entries
+
+            # OROG
+            if grb.name == "Orography":
+                key = "OROG"
+
+            # 10m winds
             if grb.name in ("U component of wind", "V component of wind"):
                 if grb.typeOfLevel != "heightAboveGround" or grb.level != 10:
                     continue
-            if grb.name in ("Geopotential Height", "Geopotential height"):
-                if grb.typeOfLevel != "surface":
-                    continue
-            if key in out:
-                continue  # already have this field
 
             try:
                 if clip_idx is None:
