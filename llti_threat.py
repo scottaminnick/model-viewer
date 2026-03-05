@@ -301,18 +301,11 @@ def _read_rap_sfc(path, step):
             key = _SFC_NAME_MAP.get(grb.name)
             if key is None:
                 continue
-            # Disambiguate T2m vs surface HGT vs 10m winds by typeOfLevel
-            if grb.name == "Temperature" and grb.typeOfLevel != "heightAboveGround":
-                continue
-            if grb.name in ("U component of wind", "V component of wind"):
-                if grb.typeOfLevel != "heightAboveGround" or grb.level != 10:
-                    continue
-            if grb.name in ("Geopotential Height", "Geopotential height"):
-                if grb.typeOfLevel != "surface":
-                    continue
-            if key in out:
-                continue  # already have this field
+    # ... typeOfLevel checks ...
+        if key in out:
+            continue
 
+        try:
             if clip_idx is None:
                 lat2d, lon2d = grb.latlons()
                 data = grb.values
@@ -321,12 +314,16 @@ def _read_rap_sfc(path, step):
                 r0, r1, c0, c1 = clip_idx
                 lat_out  = lat2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
                 lon_out  = lon2d[r0:r1, c0:c1][::step, ::step].astype(np.float32)
-            del lat2d, lon2d
-        else:
-            data = grb.values
+                del lat2d, lon2d
+            else:
+                data = grb.values
+        except (RuntimeError, ValueError):
+            logger.warning("llti RAP13 sfc: skipping message %s lev=%s (unsupported grid)",
+                           grb.name, getattr(grb, "level", "?"))
+            continue
 
-            out[key] = _clip(data, clip_idx, step)
-            del data
+        out[key] = _clip(data, clip_idx, step)
+        del data
     finally:
         grbs.close()
         gc.collect()
