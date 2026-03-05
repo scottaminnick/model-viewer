@@ -282,7 +282,7 @@ _ice_cmap, _ice_norm, _ice_legend = _scale(
 class _Icing(ProductDef):        # ← this line is missing
     def get_values(self, cycle_dt, fxx):
         from icing_threat import fetch_icing_arrays
-        sfc = "sfc" if self.herbie_model == "hrrr" else "wrfsfc"
+        sfc = "sfc" if self.herbie_model == "hrrr" else "wrfsml"
         lat2d, lon2d, score2d = fetch_icing_arrays(
             self.herbie_model, self.herbie_product, cycle_dt, fxx,
             sfc_product=sfc
@@ -414,7 +414,7 @@ register(_LLTI(
     model_id="rap13", product_id="llti",
     label="Low-Level Turbulence Index", units="index",
     herbie_model="rap", herbie_product="awp130pgrb",
-    sfc_product="wrfsfc",
+    sfc_product="wrfmsl",
     searches=[],
     cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
 ))
