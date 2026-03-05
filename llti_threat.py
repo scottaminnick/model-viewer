@@ -52,7 +52,8 @@ TRANSPORT_LEVELS_RAP  = [950, 925, 900, 850, 800, 750, 700]
 # RAP13 batch GRIB searches
 _RAP_SFC_SEARCH = (
     r":(?:TMP|DPT|HPBL|TCDC):(?:2 m above ground|surface|entire atmosphere):"
-    r"|:(?:UGRD|VGRD|HGT):10 m above ground:"
+    r"|:(?:UGRD|VGRD):10 m above ground:"
+    r"|:HGT:surface:"
 )
 _RAP_PRS_LEVELS = "(?:950|925|900|850|800|750|700)"
 _RAP_PRS_SEARCH = rf":(?:UGRD|VGRD|HGT):{_RAP_PRS_LEVELS} mb:"
