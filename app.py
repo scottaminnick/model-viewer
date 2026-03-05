@@ -3,6 +3,7 @@ app.py — model-viewer Flask application
 Generic routes driven by the ProductRegistry.
 """
 
+import os
 import threading
 import traceback
 import logging
