@@ -218,11 +218,12 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
     for lev_bot in sorted(usable, reverse=True):
         lev_top = lev_bot - 100
         if lev_top not in rh:
-    for lev_top in sorted(usable):
-        lev_bot = lev_top + 100
-        if lev_bot not in rh:
             continue
         decrease = (rh[lev_bot] - rh[lev_top]).astype(np.float32)
+    level_pairs = [(lev_top, lev_top + 100)
+                   for lev_top in sorted(usable)
+                   if (lev_top + 100) in rh]
+    for lev_top, lev_bot in level_pairs:
         decrease = (rh[lev_top] - rh[lev_bot]).astype(np.float32)
         max_rh_decrease = np.maximum(max_rh_decrease, decrease)
 
@@ -231,7 +232,6 @@ def _compute(herbie_model, prs_product, cycle, fxx, step):
                          np.clip(max_rh_decrease, 0.0, 100.0),
                          0.0).astype(np.float32)
     return lat, lon, virga_pct
-
 
 # ---------------------------------------------------------------------------
 # Public API
