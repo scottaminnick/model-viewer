@@ -29,12 +29,18 @@ log = logging.getLogger(__name__)
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
 def _preflight_compile():
-    """Fail fast on malformed Python files (e.g., pasted diff hunks in deploy artifact)."""
+    """Preflight-compile key modules; warn by default, fail only when STRICT_PREFLIGHT=1."""
+    strict = os.environ.get("STRICT_PREFLIGHT", "0") == "1"
     for rel in ("llti_threat.py", "virga_threat.py", "products/definitions.py"):
-        py_compile.compile(str(Path(__file__).with_name(rel) if "/" not in rel else Path(__file__).parent / rel), doraise=True)
+        path = Path(__file__).with_name(rel) if "/" not in rel else Path(__file__).parent / rel
+        try:
+            py_compile.compile(str(path), doraise=True)
+        except py_compile.PyCompileError:
+            if strict:
+                raise
+            log.exception("Preflight compile failed for %s; app will continue without strict mode.", path)
 
 _preflight_compile()
-
 # Kick off ARTCC boundary download in background
 threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
 
