@@ -88,13 +88,12 @@ def _k_to_f(k):
 def _fetch_field(herbie_model, product, search, cycle_dt, fxx, save_dir):
     H = Herbie(cycle_dt, model=herbie_model, product=product,
                fxx=fxx, save_dir=str(save_dir), overwrite=False)
-    result = H.xarray(search, remove_grib=False)
+    result = H.xarray(search, remove_grib=True)   # ← was False
     if isinstance(result, list):
         result = result[0] if result else xr.Dataset()
     if isinstance(result, xr.DataArray):
         result = result.to_dataset(name=result.name or "var")
     return result
-
 
 def _vals(ds):
     for v in ds.data_vars:
