@@ -51,7 +51,7 @@ DEFAULT_STEP_RAP  = 2
 # Transport wind pressure levels, low -> high AGL
 # RAP13 conservatively skips 875/825 mb (uncertain availability)
 TRANSPORT_LEVELS_HRRR = [950, 925, 900, 875, 850, 825, 800, 750, 700]
-TRANSPORT_LEVELS_RAP  = [950, 925, 900, 850, 800, 750, 700]
+TRANSPORT_LEVELS_RAP  = [950, 925, 900, 875, 850, 825, 800, 750, 700]
 
 # Algorithm constants (mirror GFE tool exactly)
 MIX_LO,   MIX_HI   = 5_000.0, 12_000.0   # ft
@@ -241,21 +241,36 @@ def _compute(herbie_model, sfc_product, prs_product, cycle_dt, fxx, step):
     td_f   = _k_to_f(dpt_k)
 
     # Pressure-level fields for transport wind
-    logger.info("llti: fetching %d prs levels (%s)...",
+    logger.info("llti: fetching up to %d prs levels (%s)...",
                 len(transport_levels), prs_product)
     u_prs_list, v_prs_list, hgt_prs_list = [], [], []
+    used_levels = []
     for mb in transport_levels:
-        u_prs_list.append(   co(_vals(fetch(prs_product, f":UGRD:{mb} mb:"))))
-        v_prs_list.append(   co(_vals(fetch(prs_product, f":VGRD:{mb} mb:"))))
-        hgt_prs_list.append( co(_vals(fetch(prs_product, f":HGT:{mb} mb:"))))
+      try:
+            u_mb = co(_vals(fetch(prs_product, f":UGRD:{mb} mb:")))
+            v_mb = co(_vals(fetch(prs_product, f":VGRD:{mb} mb:")))
+            h_mb = co(_vals(fetch(prs_product, f":HGT:{mb} mb:")))
+        except Exception as exc:
+            logger.warning("llti: missing %s mb prs fields, skipping level (%s)", mb, exc)
+            continue
 
-    u_prs   = np.stack(u_prs_list,   axis=0).astype(np.float32)
-    v_prs   = np.stack(v_prs_list,   axis=0).astype(np.float32)
-    hgt_prs = np.stack(hgt_prs_list, axis=0).astype(np.float32)
+        u_prs_list.append(u_mb)
+        v_prs_list.append(v_mb)
+        hgt_prs_list.append(h_mb)
+        used_levels.append(mb)
 
-    logger.info("llti: computing transport wind and LLTI...")
-    trspd_kt = _compute_transport_wind(u10m, v10m, u_prs, v_prs,
-                                        hgt_prs, orog_m, hpbl_m)
+    logger.info("llti: using transport levels %s", used_levels)
+    if u_prs_list:
+        u_prs   = np.stack(u_prs_list,   axis=0).astype(np.float32)
+        v_prs   = np.stack(v_prs_list,   axis=0).astype(np.float32)
+        hgt_prs = np.stack(hgt_prs_list, axis=0).astype(np.float32)
+        trspd_kt = _compute_transport_wind(u10m, v10m, u_prs, v_prs,
+                                           hgt_prs, orog_m, hpbl_m)
+    else:
+        logger.warning("llti: no prs levels available; falling back to 10 m wind for transport speed")
+        trspd_kt = (np.sqrt(u10m**2 + v10m**2) * MS_TO_KT).astype(np.float32)
+
+    logger.info("llti: computing LLTI...")
     llti2d = _compute_llti(mix_ft, trspd_kt, tcc_pct, t_f, td_f)
 
     return lat2d, lon2d, llti2d
