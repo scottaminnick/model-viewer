@@ -285,7 +285,7 @@ class _Icing(ProductDef):        # ← this line is missing
         sfc = "sfc" if self.herbie_model == "hrrr" else "wrfsml"
         lat2d, lon2d, score2d = fetch_icing_arrays(
             self.herbie_model, self.herbie_product, cycle_dt, fxx,
-            sfc_product=sfc
+            sfc_product="wrfmsl"
         )
         return lat2d, lon2d, score2d
 
