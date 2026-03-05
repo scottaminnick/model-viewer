@@ -385,13 +385,19 @@ def _compute_rap(sfc_product, prs_product, cycle_dt, fxx, step):
     logger.info("llti RAP13: downloading sfc fields (%s)...", sfc_product)
     H_sfc = Herbie(cycle_dt, model="rap", product=sfc_product,
                    fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    sfc_path = Path(H_sfc.download(searchString=_RAP_SFC_SEARCH))
+    result_sfc = H_sfc.download(searchString=_RAP_SFC_SEARCH)
+    sfc_path = Path(result_sfc) if result_sfc else None
+    if sfc_path is None or not sfc_path.exists():
+        raise FileNotFoundError(f"llti RAP13: sfc download failed for {sfc_product} F{fxx:02d}")
 
     logger.info("llti RAP13: downloading prs fields (%s)...", prs_product)
     H_prs = Herbie(cycle_dt, model="rap", product=prs_product,
                    fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
-    prs_path = Path(H_prs.download(searchString=_RAP_PRS_SEARCH))
-
+    result_prs = H_prs.download(searchString=_RAP_PRS_SEARCH)
+    prs_path = Path(result_prs) if result_prs else None
+    if prs_path is None or not prs_path.exists():
+        raise FileNotFoundError(f"llti RAP13: prs download failed for {prs_product} F{fxx:02d}")
+  
     logger.info("llti RAP13: reading sfc fields...")
     lat2d, lon2d, clip_idx, sfc = _read_rap_sfc(sfc_path, step)
 
