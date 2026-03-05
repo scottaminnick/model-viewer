@@ -714,6 +714,32 @@ class _TurbulenceRi(ProductDef):
 
         return lat2d, lon2d, TI_Ri
 
+    def get_contour_overlay(self, cycle_dt, fxx) -> dict | None:
+            """Return 250mb height contours to overlay on the TI·Ri fill."""
+            tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_turb_ri"
+            try:
+                ds250_z = herbie_fetch(
+                    self.herbie_model, self.herbie_product,
+                    cycle_dt, fxx,
+                    [":HGT:250 mb:"],
+                    f"{tag}_z250",
+                )
+                z250 = extract_var(ds250_z, ["gh", "z", "hgt", "HGT", "HGHT"])
+                lat2d, lon2d = get_latlon(ds250_z)
+                z250_100ft = z250 * 3.28084 / 100.0
+                return {
+                    "lat2d":      lat2d,
+                    "lon2d":      lon2d,
+                    "data":       z250_100ft,
+                    "levels":     list(np.arange(310, 420, 6)),
+                    "color":      "#1a1a1a",
+                    "linewidths": 1.1,
+                    "alpha":      0.80,
+                    "label_fmt":  "%i",
+                }
+            except Exception as e:
+                log.warning(f"Height overlay fetch failed: {e}")
+                return None
 
 register(_TurbulenceRi(
     model_id="rap13", product_id="turbulence_ri",
@@ -728,32 +754,4 @@ register(_TurbulenceRi(
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
     cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
-
-  def get_contour_overlay(self, cycle_dt, fxx) -> dict | None:
-        """Return 250mb height contours to overlay on the TI·Ri fill."""
-        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_turb_ri"
-        try:
-            ds250_z = herbie_fetch(
-                self.herbie_model, self.herbie_product,
-                cycle_dt, fxx,
-                [":HGT:250 mb:"],
-                f"{tag}_z250",          # same subdir → already cached from get_values()
-            )
-            z250   = extract_var(ds250_z, ["gh", "z", "hgt", "HGT", "HGHT"])
-            lat2d, lon2d = get_latlon(ds250_z)
-            # Convert metres → hundreds of feet for conventional height labels
-            z250_100ft = z250 * 3.28084 / 100.0
-            return {
-                "lat2d":      lat2d,
-                "lon2d":      lon2d,
-                "data":       z250_100ft,
-                "levels":     list(np.arange(310, 420, 6)),  # 310–420 dam, every 6
-                "color":      "#1a1a1a",
-                "linewidths": 1.1,
-                "alpha":      0.80,
-                "label_fmt":  "%i",
-            }
-        except Exception as e:
-            log.warning(f"Height overlay fetch failed: {e}")
-            return None
 ))
