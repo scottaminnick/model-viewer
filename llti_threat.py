@@ -136,7 +136,95 @@ def _compute_transport_wind(u10m, v10m, u_prs, v_prs, hgt_prs, orog, hpbl):
     hgt_agl_prs = hgt_prs - orog[np.newaxis, :, :]
 
     h_anchor = np.full((1, ny, nx), SURFACE_ANCHOR_M, dtype=np.float32)
-@@ -219,65 +230,77 @@ def _compute(herbie_model, sfc_product, prs_product, cycle_dt, fxx, step):
+    h_agl    = np.concatenate([h_anchor, hgt_agl_prs], axis=0)
+
+    u_all = np.concatenate([u10m[np.newaxis], u_prs], axis=0)
+    v_all = np.concatenate([v10m[np.newaxis], v_prs], axis=0)
+
+    h_below      = np.concatenate([np.zeros((1, ny, nx), dtype=np.float32),
+                                    h_agl[:-1]], axis=0)
+    midpoint_agl = (h_below + h_agl) / 2.0
+
+    hpbl_3d = hpbl[np.newaxis, :, :]
+    valid   = (h_agl > 0.0) & (midpoint_agl < hpbl_3d)
+
+    h_lower = np.concatenate([np.zeros((1, ny, nx), dtype=np.float32),
+                               (h_agl[:-1] + h_agl[1:]) / 2.0], axis=0)
+    h_upper = np.concatenate([(h_agl[:-1] + h_agl[1:]) / 2.0,
+                               hpbl_3d], axis=0)
+
+    h_lower = np.clip(h_lower, 0.0, hpbl_3d)
+    h_upper = np.clip(h_upper, 0.0, hpbl_3d)
+
+    dz       = np.where(valid, np.maximum(h_upper - h_lower, 0.0), 0.0)
+    dz_total = dz.sum(axis=0)
+    no_layer = dz_total < 1.0
+
+    u_mean = (u_all * dz).sum(axis=0) / np.where(no_layer, 1.0, dz_total)
+    v_mean = (v_all * dz).sum(axis=0) / np.where(no_layer, 1.0, dz_total)
+
+    u_mean = np.where(no_layer, u10m, u_mean)
+    v_mean = np.where(no_layer, v10m, v_mean)
+
+    return (np.sqrt(u_mean**2 + v_mean**2) * MS_TO_KT).astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# LLTI algorithm (pure numpy, preserved from GFE)
+# ---------------------------------------------------------------------------
+
+def _normalize(a, lo, hi):
+    return np.clip((a - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+
+
+def _compute_llti(mix_ft, trspd_kt, sky_pct, t_f, td_f):
+    dd = np.clip(t_f - td_f, 0.0, None)
+
+    s_mix   = _normalize(mix_ft,   MIX_LO,   MIX_HI)
+    s_twspd = _normalize(trspd_kt, TWSPD_LO, TWSPD_HI)
+    s_sky   = np.clip((SKY_REF - sky_pct) / max(SKY_REF, 1e-6), 0.0, 1.0)
+    s_dd    = _normalize(dd, DD_LO, DD_HI)
+
+    gate      = np.clip((trspd_kt - TW_GATE_LO) /
+                        max(TW_GATE_HI - TW_GATE_LO, 1e-6), 0.0, 1.0)
+    s_mix_eff = s_mix * gate
+
+    score01 = np.clip(
+        W_MIX * s_mix_eff + W_TWSPD * s_twspd +
+        W_SKY * s_sky     + W_DD    * s_dd,
+        0.0, 1.0,
+    )
+    out = (score01 * 100.0).astype(np.float32)
+    return np.nan_to_num(out, nan=0.0, posinf=100.0, neginf=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Core fetch + compute
+# ---------------------------------------------------------------------------
+
+def _compute(herbie_model, sfc_product, prs_product, cycle_dt, fxx, step):
+    transport_levels = (TRANSPORT_LEVELS_HRRR if herbie_model == "hrrr"
+                        else TRANSPORT_LEVELS_RAP)
+
+    # One save_dir per product to avoid Herbie hash collisions
+    def save(product):
+        d = HERBIE_DIR / f"llti_{herbie_model}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_{product}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def fetch(product, search):
+        return _fetch_field(herbie_model, product, search,
+                            cycle_dt, fxx, save(product))
+
+    # Surface fields
+    logger.info("llti: fetching sfc fields (%s)...", sfc_product)
+    ds_t2m  = fetch(sfc_product, ":TMP:2 m above ground:")
+    ds_hpbl = fetch(sfc_product, ":HPBL:surface:")
+    ds_orog = fetch(sfc_product, ":HGT:surface:")
+    ds_u10  = fetch(sfc_product, ":UGRD:10 m above ground:")
+    ds_v10  = fetch(sfc_product, ":VGRD:10 m above ground:")
+    ds_dpt  = fetch(sfc_product, ":DPT:2 m above ground:")
+    ds_tcc  = fetch(sfc_product, ":TCDC:entire atmosphere:")
 
     lat2d_full = np.asarray(ds_t2m["latitude"].values,  dtype=np.float32)
     lon2d_full = np.asarray(ds_t2m["longitude"].values, dtype=np.float32)
