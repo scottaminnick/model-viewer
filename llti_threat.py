@@ -277,8 +277,8 @@ _SFC_NAME_MAP = {
     "2 metre dewpoint temperature": "Td2m", # was "Dew point temperature"
     "Geopotential height":        "HPBL",   # planetaryBoundaryLayer lev=0
     "Orography":                  "OROG",   # was "Geopotential Height" surface
-    "U component of wind":        "U10",
-    "V component of wind":        "V10",
+    "10 metre U wind component":  "U10",    # ← real name
+    "10 metre V wind component":  "V10",    # ← real name
     "Total Cloud Cover":          "TCC",
     "Total cloud cover":          "TCC",
 }
@@ -306,21 +306,26 @@ def _read_rap_sfc(path, step):
                 pass  # typeOfLevel already heightAboveGround lev=2, no extra check needed
 
             # HPBL — Geopotential height at planetaryBoundaryLayer
+            # Disambiguate by typeOfLevel/level
             if grb.name == "Geopotential height":
                 if grb.typeOfLevel == "planetaryBoundaryLayer":
                     key = "HPBL"
                 else:
-                    continue  # skip all other Geopotential height entries
+                    continue  # skip isobaric, surface, etc.
+            elif grb.name in ("10 metre U wind component",
+                              "10 metre V wind component",
+                              "2 metre temperature",
+                              "2 metre dewpoint temperature",
+                              "Orography"):
+                pass  # typeOfLevel already unambiguous
+            elif grb.name in ("Total Cloud Cover", "Total cloud cover"):
+                pass
+            else:
+                continue
 
-            # OROG
-            if grb.name == "Orography":
-                key = "OROG"
-
-            # 10m winds
-            if grb.name in ("U component of wind", "V component of wind"):
-                if grb.typeOfLevel != "heightAboveGround" or grb.level != 10:
-                    continue
-
+            if key in out:
+                continue
+              
             try:
                 if clip_idx is None:
                     lat2d, lon2d = grb.latlons()
