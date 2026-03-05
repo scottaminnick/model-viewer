@@ -51,7 +51,7 @@ DEFAULT_STEP_RAP  = 2
 # Transport wind pressure levels, low -> high AGL
 # RAP13 conservatively skips 875/825 mb (uncertain availability)
 TRANSPORT_LEVELS_HRRR = [950, 925, 900, 875, 850, 825, 800, 750, 700]
-TRANSPORT_LEVELS_RAP  = [950, 925, 900, 875, 850, 825, 800, 750, 700]
+TRANSPORT_LEVELS_RAP  = [950, 925, 900, 850, 800, 750, 700]
 
 # Algorithm constants (mirror GFE tool exactly)
 MIX_LO,   MIX_HI   = 5_000.0, 12_000.0   # ft
@@ -101,15 +101,6 @@ def _vals(ds):
         return np.asarray(ds[v].values, dtype=np.float32)
     raise ValueError("Empty dataset — check search string.")
 
-def _fetch_prs_level_safe(fetch, co, prs_product, mb):
-    try:
-        u_mb = co(_vals(fetch(prs_product, f":UGRD:{mb} mb:")))
-        v_mb = co(_vals(fetch(prs_product, f":VGRD:{mb} mb:")))
-        h_mb = co(_vals(fetch(prs_product, f":HGT:{mb} mb:")))
-        return u_mb, v_mb, h_mb
-    except Exception as exc:
-        logger.warning("llti: missing %s mb prs fields, skipping level (%s)", mb, exc)
-        return None
 
 # ---------------------------------------------------------------------------
 # CONUS clip
@@ -136,7 +127,95 @@ def _compute_transport_wind(u10m, v10m, u_prs, v_prs, hgt_prs, orog, hpbl):
     hgt_agl_prs = hgt_prs - orog[np.newaxis, :, :]
 
     h_anchor = np.full((1, ny, nx), SURFACE_ANCHOR_M, dtype=np.float32)
-@@ -219,65 +230,77 @@ def _compute(herbie_model, sfc_product, prs_product, cycle_dt, fxx, step):
+    h_agl    = np.concatenate([h_anchor, hgt_agl_prs], axis=0)
+
+    u_all = np.concatenate([u10m[np.newaxis], u_prs], axis=0)
+    v_all = np.concatenate([v10m[np.newaxis], v_prs], axis=0)
+
+    h_below      = np.concatenate([np.zeros((1, ny, nx), dtype=np.float32),
+                                    h_agl[:-1]], axis=0)
+    midpoint_agl = (h_below + h_agl) / 2.0
+
+    hpbl_3d = hpbl[np.newaxis, :, :]
+    valid   = (h_agl > 0.0) & (midpoint_agl < hpbl_3d)
+
+    h_lower = np.concatenate([np.zeros((1, ny, nx), dtype=np.float32),
+                               (h_agl[:-1] + h_agl[1:]) / 2.0], axis=0)
+    h_upper = np.concatenate([(h_agl[:-1] + h_agl[1:]) / 2.0,
+                               hpbl_3d], axis=0)
+
+    h_lower = np.clip(h_lower, 0.0, hpbl_3d)
+    h_upper = np.clip(h_upper, 0.0, hpbl_3d)
+
+    dz       = np.where(valid, np.maximum(h_upper - h_lower, 0.0), 0.0)
+    dz_total = dz.sum(axis=0)
+    no_layer = dz_total < 1.0
+
+    u_mean = (u_all * dz).sum(axis=0) / np.where(no_layer, 1.0, dz_total)
+    v_mean = (v_all * dz).sum(axis=0) / np.where(no_layer, 1.0, dz_total)
+
+    u_mean = np.where(no_layer, u10m, u_mean)
+    v_mean = np.where(no_layer, v10m, v_mean)
+
+    return (np.sqrt(u_mean**2 + v_mean**2) * MS_TO_KT).astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# LLTI algorithm (pure numpy, preserved from GFE)
+# ---------------------------------------------------------------------------
+
+def _normalize(a, lo, hi):
+    return np.clip((a - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+
+
+def _compute_llti(mix_ft, trspd_kt, sky_pct, t_f, td_f):
+    dd = np.clip(t_f - td_f, 0.0, None)
+
+    s_mix   = _normalize(mix_ft,   MIX_LO,   MIX_HI)
+    s_twspd = _normalize(trspd_kt, TWSPD_LO, TWSPD_HI)
+    s_sky   = np.clip((SKY_REF - sky_pct) / max(SKY_REF, 1e-6), 0.0, 1.0)
+    s_dd    = _normalize(dd, DD_LO, DD_HI)
+
+    gate      = np.clip((trspd_kt - TW_GATE_LO) /
+                        max(TW_GATE_HI - TW_GATE_LO, 1e-6), 0.0, 1.0)
+    s_mix_eff = s_mix * gate
+
+    score01 = np.clip(
+        W_MIX * s_mix_eff + W_TWSPD * s_twspd +
+        W_SKY * s_sky     + W_DD    * s_dd,
+        0.0, 1.0,
+    )
+    out = (score01 * 100.0).astype(np.float32)
+    return np.nan_to_num(out, nan=0.0, posinf=100.0, neginf=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Core fetch + compute
+# ---------------------------------------------------------------------------
+
+def _compute(herbie_model, sfc_product, prs_product, cycle_dt, fxx, step):
+    transport_levels = (TRANSPORT_LEVELS_HRRR if herbie_model == "hrrr"
+                        else TRANSPORT_LEVELS_RAP)
+
+    # One save_dir per product to avoid Herbie hash collisions
+    def save(product):
+        d = HERBIE_DIR / f"llti_{herbie_model}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_{product}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def fetch(product, search):
+        return _fetch_field(herbie_model, product, search,
+                            cycle_dt, fxx, save(product))
+
+    # Surface fields
+    logger.info("llti: fetching sfc fields (%s)...", sfc_product)
+    ds_t2m  = fetch(sfc_product, ":TMP:2 m above ground:")
+    ds_hpbl = fetch(sfc_product, ":HPBL:surface:")
+    ds_orog = fetch(sfc_product, ":HGT:surface:")
+    ds_u10  = fetch(sfc_product, ":UGRD:10 m above ground:")
+    ds_v10  = fetch(sfc_product, ":VGRD:10 m above ground:")
+    ds_dpt  = fetch(sfc_product, ":DPT:2 m above ground:")
+    ds_tcc  = fetch(sfc_product, ":TCDC:entire atmosphere:")
 
     lat2d_full = np.asarray(ds_t2m["latitude"].values,  dtype=np.float32)
     lon2d_full = np.asarray(ds_t2m["longitude"].values, dtype=np.float32)
@@ -162,33 +241,21 @@ def _compute_transport_wind(u10m, v10m, u_prs, v_prs, hgt_prs, orog, hpbl):
     td_f   = _k_to_f(dpt_k)
 
     # Pressure-level fields for transport wind
-    logger.info("llti: fetching up to %d prs levels (%s)...",
+    logger.info("llti: fetching %d prs levels (%s)...",
                 len(transport_levels), prs_product)
     u_prs_list, v_prs_list, hgt_prs_list = [], [], []
-    used_levels = []
     for mb in transport_levels:
-        level = _fetch_prs_level_safe(fetch, co, prs_product, mb)
-        if level is None:
-            continue
-        u_mb, v_mb, h_mb = level
+        u_prs_list.append(   co(_vals(fetch(prs_product, f":UGRD:{mb} mb:"))))
+        v_prs_list.append(   co(_vals(fetch(prs_product, f":VGRD:{mb} mb:"))))
+        hgt_prs_list.append( co(_vals(fetch(prs_product, f":HGT:{mb} mb:"))))
 
-        u_prs_list.append(u_mb)
-        v_prs_list.append(v_mb)
-        hgt_prs_list.append(h_mb)
-        used_levels.append(mb)
+    u_prs   = np.stack(u_prs_list,   axis=0).astype(np.float32)
+    v_prs   = np.stack(v_prs_list,   axis=0).astype(np.float32)
+    hgt_prs = np.stack(hgt_prs_list, axis=0).astype(np.float32)
 
-    logger.info("llti: using transport levels %s", used_levels)
-    if u_prs_list:
-        u_prs   = np.stack(u_prs_list,   axis=0).astype(np.float32)
-        v_prs   = np.stack(v_prs_list,   axis=0).astype(np.float32)
-        hgt_prs = np.stack(hgt_prs_list, axis=0).astype(np.float32)
-        trspd_kt = _compute_transport_wind(u10m, v10m, u_prs, v_prs,
-                                           hgt_prs, orog_m, hpbl_m)
-    else:
-        logger.warning("llti: no prs levels available; falling back to 10 m wind for transport speed")
-        trspd_kt = (np.sqrt(u10m**2 + v10m**2) * MS_TO_KT).astype(np.float32)
-
-    logger.info("llti: computing LLTI...")
+    logger.info("llti: computing transport wind and LLTI...")
+    trspd_kt = _compute_transport_wind(u10m, v10m, u_prs, v_prs,
+                                        hgt_prs, orog_m, hpbl_m)
     llti2d = _compute_llti(mix_ft, trspd_kt, tcc_pct, t_f, td_f)
 
     return lat2d, lon2d, llti2d
