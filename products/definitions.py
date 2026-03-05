@@ -410,14 +410,14 @@ class _LLTI(ProductDef):
             self.herbie_product, cycle_dt, fxx
         )
 
-register(_LLTI(
-    model_id="rap13", product_id="llti",
-    label="Low-Level Turbulence Index", units="index",
-    herbie_model="rap", herbie_product="awp130pgrb",
-    sfc_product="wrfmsl",
-    searches=[],
-    cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
-))
+#register(_LLTI(
+    #model_id="rap13", product_id="llti",
+    #label="Low-Level Turbulence Index", units="index",
+    #herbie_model="rap", herbie_product="awp130pgrb",
+    #sfc_product="wrfmsl",
+    #searches=[],
+    #cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
+#))
 register(_LLTI(
     model_id="hrrr", product_id="llti",
     label="Low-Level Turbulence Index", units="index",
