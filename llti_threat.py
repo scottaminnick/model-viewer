@@ -418,6 +418,21 @@ def _compute_rap(sfc_product, prs_product, cycle_dt, fxx, step):
     return lat2d, lon2d, llti2d
 
 
+def debug_rap_fields(cycle_dt, fxx):
+    """Call once to see what's actually in awp130pgrb."""
+    H = Herbie(cycle_dt, model="rap", product="awp130pgrb",
+               fxx=fxx, save_dir=str(HERBIE_DIR), overwrite=False)
+    H.download()
+    path = H.get_localFilePath()
+    grbs = pygrib.open(str(path))
+    seen = set()
+    for grb in grbs:
+        key = (grb.name, grb.typeOfLevel, grb.level)
+        if key not in seen:
+            seen.add(key)
+            print(f"  {grb.name!r:50s}  {grb.typeOfLevel!r:25s}  lev={grb.level}")
+    grbs.close()
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
