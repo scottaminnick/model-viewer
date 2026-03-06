@@ -120,7 +120,6 @@ def _clip(arr, clip_idx, step):
     r0, r1, c0, c1 = clip_idx
     return arr[r0:r1, c0:c1][::step, ::step].astype(np.float32)
 
-
 def _weighted_layer_mean(field_dict, levels):
     """
     Pressure-thickness weighted mean over a layer defined by pressure levels.
