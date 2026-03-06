@@ -370,9 +370,10 @@ _virga_cmap, _virga_norm, _virga_legend = _scale(
 class _Virga(ProductDef):
     def get_values(self, cycle_dt, fxx):
         from virga_threat import fetch_virga_arrays
-        return fetch_virga_arrays(
+        lat2d, lon2d, _, virga_turb = fetch_virga_arrays(
             self.herbie_model, self.herbie_product, cycle_dt, fxx
         )
+        return lat2d, lon2d, virga_turb
 
 register(_Virga(
     model_id="rap13", product_id="virga",
