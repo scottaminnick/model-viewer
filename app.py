@@ -103,12 +103,16 @@ def api_image(model_id, product_id, cycle_utc, fxx):
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
 
-    png = render_png(lat2d, lon2d, vals2d, prod.cmap, prod.norm, prod.render_mode)
+    overlay = (prod.get_contour_overlay(cycle_dt, fxx)
+               if hasattr(prod, "get_contour_overlay") else None)
+    log.info(f"Contour overlay result: {overlay is not None}")   # ← temp debug
+
+    png = render_png(lat2d, lon2d, vals2d, prod.cmap, prod.norm,
+                     prod.render_mode, contour_overlay=overlay)
     IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)
 
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
-
 
 # ── points endpoint (cursor sampling) ────────────────────────────────────────
 
