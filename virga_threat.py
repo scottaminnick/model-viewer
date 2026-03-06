@@ -374,7 +374,7 @@ def _compute_legacy_turbulence_terms(rh, U, V, usable, shape):
     zeros = np.zeros(shape, dtype=np.float32)
 
     # --- Upper moist-layer gate: use sliding 200 mb windows aloft
-    upper_window_starts = [300, 400, 500, 600, 700]
+    upper_window_starts = [300, 400, 500]
     max_rh_upper = np.zeros(shape, dtype=np.float32)
 
     found_upper_window = False
