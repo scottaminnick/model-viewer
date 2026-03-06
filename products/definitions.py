@@ -33,7 +33,6 @@ def _scale(bounds: list, colors: list, labels: list) -> tuple:
     legend = [{"color": c, "label": l} for c, l in zip(colors, labels)]
     return cmap, norm, legend
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 #  WIND GUSTS — surface   (RAP13 + HRRR)
 # ══════════════════════════════════════════════════════════════════════════════
