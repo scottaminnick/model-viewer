@@ -730,7 +730,8 @@ class _TurbulenceRi(ProductDef):
                 "lat2d":      lat2d,
                 "lon2d":      lon2d,
                 "data":       z250_100ft,
-                "levels":     list(np.arange(310, 420, 6)),
+                # Every 3 - double the density (standard for operational 250mb charts)
+                "levels":     list(np.arange(310, 420, 3)),
                 "color":      "#1a1a1a",
                 "linewidths": 1.1,
                 "alpha":      0.80,
@@ -745,12 +746,52 @@ register(_TurbulenceRi(
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
-    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
+    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
+    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
+    colors=['#f7f7f7',   # Neg/trace
+            '#fef0d9',   # 1 — Light
+            '#fdd49e',   # 2 — Light-Mod
+            '#fdbb84',   # 3 — Moderate
+            '#fc8d59',   # 4 — Mod-Sev
+            '#ef6548',   # 5 — Severe
+            '#d7301f',   # 6 — Extreme
+            '#b30000',   # 7 — Extreme+
+            '#7f0000'],  # 8 — Extreme++
+    labels=['Neg',
+            '1 (Light)',
+            '2 (Light-Mod)',
+            '3 (Moderate)',
+            '4 (Mod-Sev)',
+            '5 (Severe)',
+            '6 (Extreme)',
+            '7 (Extreme+)',
+            '8 (Extreme++)'],
+),
 ))
 register(_TurbulenceRi(
     model_id="hrrr", product_id="turbulence_ri",
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
-    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
+    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
+    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
+    colors=['#f7f7f7',   # Neg/trace
+            '#fef0d9',   # 1 — Light
+            '#fdd49e',   # 2 — Light-Mod
+            '#fdbb84',   # 3 — Moderate
+            '#fc8d59',   # 4 — Mod-Sev
+            '#ef6548',   # 5 — Severe
+            '#d7301f',   # 6 — Extreme
+            '#b30000',   # 7 — Extreme+
+            '#7f0000'],  # 8 — Extreme++
+    labels=['Neg',
+            '1 (Light)',
+            '2 (Light-Mod)',
+            '3 (Moderate)',
+            '4 (Mod-Sev)',
+            '5 (Severe)',
+            '6 (Extreme)',
+            '7 (Extreme+)',
+            '8 (Extreme++)'],
+)
 ))
