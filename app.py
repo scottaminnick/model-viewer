@@ -59,7 +59,6 @@ def index():
 def health():
     return jsonify(status="ok")
 
-
 @app.get("/api/products")
 def api_products():
     """Return all registered models and products for the UI dropdowns."""
