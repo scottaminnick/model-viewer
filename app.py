@@ -82,7 +82,6 @@ def api_status(model_id, product_id):
     )
     return jsonify(status)
 
-
 # ── image endpoint  ────────────────────────────────────────────────────────────
 
 @app.get("/api/image/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
