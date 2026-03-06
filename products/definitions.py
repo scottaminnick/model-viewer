@@ -771,12 +771,12 @@ register(_TurbulenceRi(
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
-    cmap=_ti_ri_cmap, _ti_ri_norm, _ti_ri_legend,
+    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
 ))
 register(_TurbulenceRi(
     model_id="hrrr", product_id="turbulence_ri",
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
-    cmap_ti_ri_cmap, _ti_ri_norm, _ti_ri_legend,
+    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
 ))
