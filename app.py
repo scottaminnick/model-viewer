@@ -47,7 +47,6 @@ threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
 
 TTL = 600   # seconds — cache rendered images for 10 min
 
-
 # ── static frontend ───────────────────────────────────────────────────────────
 
 @app.get("/")
