@@ -444,13 +444,26 @@ register(_LLTI(
 #  Result scaled by 1e7 to bring into display range (~0–40 for typical jets).
 # ══════════════════════════════════════════════════════════════════════════════
 _ti_cmap, _ti_norm, _ti_legend = _scale(
-    bounds=[0, 4, 8, 12, 16, 20, 28, 40, 200],
-    colors=['#f7f7f7', '#d9f0a3', '#addd8e', '#78c679',
-            '#41ab5d', '#fd8d3c', '#e31a1c', '#800026'],
-    labels=['Neg', '1 (Light)', '2 (Light-Mod)', '3 (Moderate)',
-            '4 (Mod-Sev)', '5 (Severe)', '6 (Extreme)', '7 (Extreme+)'],
+    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
+    colors=['#f7f7f7',
+            '#d9f0a3',
+            '#addd8e',
+            '#78c679',
+            '#41ab5d',
+            '#fd8d3c',
+            '#e31a1c',
+            '#800026',
+            '#4d0010'],
+    labels=['Neg',
+            '1 (Light)',
+            '2 (Light-Mod)',
+            '3 (Moderate)',
+            '4 (Mod-Sev)',
+            '5 (Severe)',
+            '6 (Extreme)',
+            '7 (Extreme+)',
+            '8 (Extreme++)'],
 )
-
 
 def _compute_grid_spacing(lat2d, lon2d):
     """
@@ -594,13 +607,26 @@ register(_Turbulence(
 #  and computing bulk Ri over the same 300–250mb layer used for TI1.
 # ══════════════════════════════════════════════════════════════════════════════
 _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
-    bounds=[0, 4, 8, 12, 16, 20, 28, 40, 200],
-    colors=['#f7f7f7', '#fec44f', '#fe9929', '#ec7014',
-            '#cc4c02', '#993404', '#662506', '#3d0000'],
-    labels=['Neg', '1 (Light)', '2 (Light-Mod)', '3 (Moderate)',
-            '4 (Mod-Sev)', '5 (Severe)', '6 (Extreme)', '7 (Extreme+)'],
+    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
+    colors=['#f7f7f7',
+            '#fef0d9',
+            '#fdd49e',
+            '#fdbb84',
+            '#fc8d59',
+            '#ef6548',
+            '#d7301f',
+            '#b30000',
+            '#7f0000'],
+    labels=['Neg',
+            '1 (Light)',
+            '2 (Light-Mod)',
+            '3 (Moderate)',
+            '4 (Mod-Sev)',
+            '5 (Severe)',
+            '6 (Extreme)',
+            '7 (Extreme+)',
+            '8 (Extreme++)'],
 )
-
 
 @dataclass
 class _TurbulenceRi(ProductDef):
@@ -735,7 +761,7 @@ class _TurbulenceRi(ProductDef):
                 "color":      "#1a1a1a",
                 "linewidths": 1.1,
                 "alpha":      0.80,
-                 "label_fmt":  "%i",
+                "label_fmt":  "%i",
             }
         except Exception as e:
             log.warning(f"Height overlay fetch failed: {e}")
@@ -746,52 +772,12 @@ register(_TurbulenceRi(
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
-    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
-    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
-    colors=['#f7f7f7',   # Neg/trace
-            '#fef0d9',   # 1 — Light
-            '#fdd49e',   # 2 — Light-Mod
-            '#fdbb84',   # 3 — Moderate
-            '#fc8d59',   # 4 — Mod-Sev
-            '#ef6548',   # 5 — Severe
-            '#d7301f',   # 6 — Extreme
-            '#b30000',   # 7 — Extreme+
-            '#7f0000'],  # 8 — Extreme++
-    labels=['Neg',
-            '1 (Light)',
-            '2 (Light-Mod)',
-            '3 (Moderate)',
-            '4 (Mod-Sev)',
-            '5 (Severe)',
-            '6 (Extreme)',
-            '7 (Extreme+)',
-            '8 (Extreme++)'],
-),
+    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend,
 ))
 register(_TurbulenceRi(
     model_id="hrrr", product_id="turbulence_ri",
     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
     herbie_model="hrrr", herbie_product="prs",
     searches=[],
-    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend = _scale(
-    bounds=[0, 10, 20, 30, 40, 50, 60, 75, 100, 200],
-    colors=['#f7f7f7',   # Neg/trace
-            '#fef0d9',   # 1 — Light
-            '#fdd49e',   # 2 — Light-Mod
-            '#fdbb84',   # 3 — Moderate
-            '#fc8d59',   # 4 — Mod-Sev
-            '#ef6548',   # 5 — Severe
-            '#d7301f',   # 6 — Extreme
-            '#b30000',   # 7 — Extreme+
-            '#7f0000'],  # 8 — Extreme++
-    labels=['Neg',
-            '1 (Light)',
-            '2 (Light-Mod)',
-            '3 (Moderate)',
-            '4 (Mod-Sev)',
-            '5 (Severe)',
-            '6 (Extreme)',
-            '7 (Extreme+)',
-            '8 (Extreme++)'],
-)
+    _ti_ri_cmap, _ti_ri_norm, _ti_ri_legend,
 ))
