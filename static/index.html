@@ -195,6 +195,10 @@ async function onProductChange(productId) {
 async function loadStatus() {
   const status = await fetch(`/api/status/${curModel}/${curProduct}`).then(r => r.json());
   const cycleSel = document.getElementById("sel-cycle");
+  
+  // Remember what was selected before rebuilding
+  const previousCycle = curCycle;
+  
   cycleSel.innerHTML = "";
   status.cycles.forEach(c => {
     const o = document.createElement("option");
@@ -202,9 +206,15 @@ async function loadStatus() {
     o.textContent = `${c.cycle_utc.replace("+00:00","Z")}  (${c.pct_complete}% ready)`;
     cycleSel.appendChild(o);
   });
-  curCycle = status.cycles[0].cycle_utc;
-  const avail = status.cycles[0].available_hours;
-  renderHourStrip(avail, status.cycles[0].cached_hours || []);
+
+  // Restore previous selection if it still exists, otherwise default to latest
+  const match = status.cycles.find(c => c.cycle_utc === previousCycle);
+  curCycle = match ? previousCycle : status.cycles[0].cycle_utc;
+  cycleSel.value = curCycle;
+
+  const cycleData = match || status.cycles[0];
+  const avail = cycleData.available_hours;
+  renderHourStrip(avail, cycleData.cached_hours || []);
   cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
   curFxx = avail.includes(1) ? 1 : avail[0];
   await loadImage(curFxx);
