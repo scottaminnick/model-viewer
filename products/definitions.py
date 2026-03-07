@@ -319,44 +319,28 @@ _fr_cmap, _fr_norm, _fr_legend = _scale(
 )
 
 @dataclass
-class _Froude(ProductDef):
-    """Fr = U_700 / (N * H) — 700mb U+V fetched together."""
+class _FroudeRegion(ProductDef):
+    """Regionalized Froude number via froude.py — HRRR only."""
+    region_name: str = "front_range"
+    group: str = "froude"
+
     def get_values(self, cycle_dt, fxx):
-        g = 9.81
-        H = 1000.0
-        tag = f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}_{fxx:02d}_froude"
+        from froude import fetch_froude_arrays
+        return fetch_froude_arrays(
+            self.herbie_model, self.herbie_product,
+            cycle_dt, fxx,
+            region_name=self.region_name,
+        )
 
-        ds_uv = herbie_fetch(self.herbie_model, self.herbie_product,
-                             cycle_dt, fxx,
-                             [":UGRD:700 mb:|:VGRD:700 mb:"],
-                             f"{tag}_uv700")
-        u700 = extract_var(ds_uv, ["ugrd", "u"])
-        v700 = extract_var(ds_uv, ["vgrd", "v"])
-        U = np.sqrt(u700**2 + v700**2)
-        lat2d, lon2d = get_latlon(ds_uv)
-
-        ds_t850 = herbie_fetch(self.herbie_model, self.herbie_product,
-                               cycle_dt, fxx, [":TMP:850 mb:"], f"{tag}_t850")
-        ds_t500 = herbie_fetch(self.herbie_model, self.herbie_product,
-                               cycle_dt, fxx, [":TMP:500 mb:"], f"{tag}_t500")
-        T850 = extract_var(ds_t850, ["tmp", "t"])
-        T500 = extract_var(ds_t500, ["tmp", "t"])
-
-        theta850 = T850 * (1000/850)**0.286
-        theta500 = T500 * (1000/500)**0.286
-        theta_mean = (theta850 + theta500) / 2.0
-        dz = 4000.0
-        N2 = np.maximum((g / theta_mean) * ((theta500 - theta850) / dz), 1e-6)
-        Fr = np.clip(U / (np.sqrt(N2) * H), 0, 5.0)
-        return lat2d, lon2d, Fr
-
-register(_Froude(
-    model_id="rap13", product_id="froude",
-    label="Froude Number — 700mb", units="Fr",
-    herbie_model="rap", herbie_product="awp130pgrb",
+register(_FroudeRegion(
+    model_id="hrrr", product_id="froude_front_range",
+    label="Froude — Front Range", units="Fr",
+    herbie_model="hrrr", herbie_product="prs",
     searches=[],
+    region_name="front_range",
     cmap=_fr_cmap, norm=_fr_norm, legend=_fr_legend,
 ))
+
 
 # ── Virga ──────────────────────────────────────────────────────────────────
 
