@@ -72,6 +72,12 @@
 
 <div id="hourbar"><span class="hl">HOUR →</span></div>
 
+<div id="regionbar" style="display:none; align-items:center; gap:4px; padding:4px 12px;
+     background:#0d1117; border-bottom:1px solid #21262d; flex-shrink:0;">
+  <span style="font-size:11px; color:#8b949e; margin-right:6px;">REGION →</span>
+  <button class="fxx-btn active" data-region="froude_front_range">Front Range</button>
+</div>
+
 <div id="main">
   <div id="map"></div>
   <div id="sidebar">
@@ -190,6 +196,20 @@ async function onProductChange(productId) {
   document.getElementById("sel-product").value = productId;
   const mDef = registry.find(m => m.model_id === curModel);
   const pDef = mDef.products.find(p => p.product_id === productId);
+
+  // Show/hide region bar for Froude products
+  const regionBar = document.getElementById("regionbar");
+  regionBar.style.display = pDef.group === "froude" ? "flex" : "none";
+
+  // Wire up region buttons
+  document.querySelectorAll("#regionbar button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll("#regionbar button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      onProductChange(btn.dataset.region);
+    };
+  });
+
   curUnits = pDef.units;
   document.getElementById("cursor-unit").textContent = pDef.units;
   document.getElementById("legend-title").textContent = pDef.label;
