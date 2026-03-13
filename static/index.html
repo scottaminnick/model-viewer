@@ -121,12 +121,12 @@ const esriRoads = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
   { attribution: "Tiles © Esri", maxZoom: 16, opacity: 0.7 });
 
-const statesLayer = L.geoJSON(null, { style: { color:"#ffffff", weight:1, fill:false, opacity:0.6 } });
+const statesLayer = L.geoJSON(null, { style: { color:"#000000", weight:2.5, fill:false, opacity:0.9 } });
 fetch("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
   .then(r => r.json()).then(gj => statesLayer.addData(gj));
 statesLayer.addTo(map);
 
-const artccLayer = L.geoJSON(null, { style: { color:"#f0a500", weight:1.2, fill:false, dashArray:"5,3", opacity:0.8 } });
+const artccLayer = L.geoJSON(null, { style: { color:"#ff69b4", weight:2.5, fill:false, dashArray:"5,3", opacity:0.95 } });
 fetch("/api/artcc/boundaries").then(r => r.json()).then(gj => artccLayer.addData(gj));
 artccLayer.addTo(map);
 
