@@ -255,6 +255,10 @@ async function loadImage(fxx) {
     barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
   }
 
+  // Keep vector layers on top of the image overlay
+  statesLayer.bringToFront();
+  artccLayer.bringToFront();
+
   setBadge("100% ready", "#3fb950");
   // Points for cursor
   fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
