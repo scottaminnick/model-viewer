@@ -362,8 +362,9 @@ def get_froude_cached(cycle_utc: str, fxx: int = 1, ttl_seconds: int = 600) -> d
     if cached is None or (now - cached["ts"]) > ttl_seconds:
         _CACHE[key] = {"ts": now, "data": fetch_froude(cycle_utc=cycle_utc, fxx=fxx)}
     return _CACHE[key]["data"]
-    
-    # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
 # Array interface for definitions.py ProductDef pipeline
 # ---------------------------------------------------------------------------
 
