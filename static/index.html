@@ -106,6 +106,12 @@ let imageOverlay = null, barbOverlay = null, pointsData = null, mslData = null, 
 // Map
 const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
 
+// Custom pane for raster overlays — sits below the default overlayPane (z 400)
+// so vector layers always render on top regardless of add order.
+map.createPane("modelPane");
+map.getPane("modelPane").style.zIndex = 300;
+map.getPane("modelPane").style.pointerEvents = "none";
+
 const darkGray = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
   { attribution: "Tiles © Esri", maxZoom: 16 });
@@ -244,7 +250,7 @@ async function loadImage(fxx) {
   const opacity = document.getElementById("opacity-slider").value / 100;
   const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
-  imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, zIndex: 200 }).addTo(map);
+  imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, pane: "modelPane" }).addTo(map);
 
   // Wind barbs overlay
   if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
@@ -252,7 +258,7 @@ async function loadImage(fxx) {
   const pDef = mDef.products.find(p => p.product_id === curProduct);
   if (pDef.supports_barbs) {
     const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
-    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, zIndex: 201 }).addTo(map);
+    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, pane: "modelPane" }).addTo(map);
   }
 
   // Keep vector layers on top of the image overlay
