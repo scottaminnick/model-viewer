@@ -8,16 +8,5 @@ eccodes==2.39.0
 herbie-data
 matplotlib==3.9.4
 pygrib
-#silly comment for railway
-cfgrib==0.9.15.0
-eccodes==2.39.0
-flask==3.0.3
-gunicorn==22.0.0
-herbie-data
-matplotlib==3.9.4
-numpy==2.1.3
-pygrib
-requests==2.32.3
-xarray==2025.1.2
 scipy
 cartopy
