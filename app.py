@@ -32,7 +32,8 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 def _preflight_compile():
     """Preflight-compile key modules; warn by default, fail only when STRICT_PREFLIGHT=1."""
     strict = os.environ.get("STRICT_PREFLIGHT", "0") == "1"
-    for rel in ("llti_threat.py", "virga_threat.py", "products/definitions.py"):
+    for rel in ("llti_threat.py", "virga_threat.py", "products/definitions.py",
+                "products/science/sigma_omega.py"):
         path = Path(__file__).with_name(rel) if "/" not in rel else Path(__file__).parent / rel
         try:
             py_compile.compile(str(path), doraise=True)
@@ -160,6 +161,24 @@ def api_barbs(model_id, product_id, cycle_utc, fxx):
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
     png = render_barbs_png(lat2d, lon2d, u2d, v2d, stride=prod.barb_stride)
     IMAGE_CACHE.set(model_id, barbs_id, cycle_utc, fxx, png)
+    return Response(png, mimetype="image/png",
+                    headers={"Cache-Control": f"public, max-age={TTL}"})
+
+# ── composite endpoint (sigma-omega 2×2 panel) ───────────────────────────────
+
+@app.get("/api/composite/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
+def api_composite(model_id, product_id, cycle_utc, fxx):
+    """Return a composite multi-panel PNG (e.g. sigma-omega 2×2 figure)."""
+    cache_id = product_id + "_composite"
+    cached = IMAGE_CACHE.get(model_id, cache_id, cycle_utc, fxx, TTL)
+    if cached:
+        return Response(cached, mimetype="image/png",
+                        headers={"Cache-Control": f"public, max-age={TTL}"})
+
+    prod = get_product(model_id, product_id)
+    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
+    png = prod.get_composite_png(cycle_dt, fxx)
+    IMAGE_CACHE.set(model_id, cache_id, cycle_utc, fxx, png)
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
 

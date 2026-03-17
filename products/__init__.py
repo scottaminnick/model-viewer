@@ -110,7 +110,8 @@ def registry_json() -> list:
                  "legend":     p.legend,
                  "supports_barbs": p.supports_barbs,
                  "fxx_max":    p.fxx_max,
-                 "group":      getattr(p, "group", None)}
+                 "group":      getattr(p, "group", None),
+                 "render_mode": p.render_mode}
                 for pid, p in products.items()
             ]
         })

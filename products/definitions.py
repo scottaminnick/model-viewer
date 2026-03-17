@@ -800,3 +800,56 @@ register(_TurbulenceRi(
     searches=[],
     cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
 ))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SIGMA OMEGA (σω) — Mountain Wave Composite   (HRRR only)
+#
+#  Spatial standard deviation of omega (VVEL) in a 5×5 neighbourhood.
+#  Rendered as a 2×2 cartopy panel figure (composite), NOT as a CONUS overlay.
+#  Two level sets: "lo" (500–800 hPa) and "hi" (200–400 hPa).
+# ══════════════════════════════════════════════════════════════════════════════
+
+_sigma_omega_legend = [
+    {"color": "#ffffff", "label": "< 0.2 Pa/s"},
+    {"color": "#ffeda0", "label": "0.2–0.6 Pa/s"},
+    {"color": "#feb24c", "label": "0.6–1.0 Pa/s"},
+    {"color": "#f03b20", "label": "1.0–1.6 Pa/s"},
+    {"color": "#bd0026", "label": "≥ 1.6 Pa/s"},
+]
+
+@dataclass
+class _SigmaOmega(ProductDef):
+    """Composite 2×2 panel product — uses get_composite_png() instead of get_values()."""
+    level_set: str = "lo"
+    render_mode: str = "composite"
+
+    def get_values(self, cycle_dt, fxx):
+        raise NotImplementedError(
+            "SigmaOmega is a composite product — use get_composite_png()"
+        )
+
+    def get_composite_png(self, cycle_dt, fxx) -> bytes:
+        from products.science.sigma_omega import fetch_sigma_omega_composite
+        return fetch_sigma_omega_composite(
+            self.herbie_model, self.herbie_product,
+            cycle_dt, fxx,
+            level_set=self.level_set,
+        )
+
+register(_SigmaOmega(
+    model_id="hrrr", product_id="sigma_omega_lo",
+    label="σ(ω) Mountain Wave — Lower Trop (500–800 hPa)", units="Pa/s",
+    herbie_model="hrrr", herbie_product="prs",
+    searches=[],
+    level_set="lo",
+    cmap=None, norm=None, legend=_sigma_omega_legend,
+))
+register(_SigmaOmega(
+    model_id="hrrr", product_id="sigma_omega_hi",
+    label="σ(ω) Mountain Wave — Upper Trop (200–400 hPa)", units="Pa/s",
+    herbie_model="hrrr", herbie_product="prs",
+    searches=[],
+    level_set="hi",
+    cmap=None, norm=None, legend=_sigma_omega_legend,
+))

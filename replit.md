@@ -20,6 +20,7 @@ A Flask application that fetches HRRR (High-Resolution Rapid Refresh) weather mo
 - `products/` — product registry and definitions
 - `static/` — frontend (index.html, artcc.geojson)
 - `artcc_boundaries.py` — ARTCC boundary data management
+- `products/science/` — science-heavy products (sigma_omega.py — mountain wave σ(ω) with cartopy)
 - `*.py` — individual product implementations (froude, icing, llti, virga, winds, winds_surface)
 
 ## API Routes
@@ -32,6 +33,7 @@ A Flask application that fetches HRRR (High-Resolution Rapid Refresh) weather mo
 - `GET /api/points/<model_id>/<product_id>/<cycle_utc>/<fxx>` — JSON point data
 - `GET /api/barbs/<model_id>/<product_id>/<cycle_utc>/<fxx>` — wind barbs PNG
 - `GET /api/meta/<model_id>/<product_id>/<cycle_utc>/<fxx>` — image metadata
+- `GET /api/composite/<model_id>/<product_id>/<cycle_utc>/<fxx>` — composite multi-panel PNG (sigma-omega)
 - `GET /api/artcc/boundaries` — ARTCC boundary GeoJSON
 
 ## Workflow

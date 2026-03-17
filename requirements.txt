@@ -20,3 +20,4 @@ pygrib
 requests==2.32.3
 xarray==2025.1.2
 scipy
+cartopy

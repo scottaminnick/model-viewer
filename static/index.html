@@ -28,10 +28,54 @@
     .fxx-btn:hover  { border-color: #58a6ff; color: #e6edf3; }
     .fxx-btn.active { background: #1f6feb; border-color: #58a6ff; color: #fff; }
     .fxx-btn.loading { border-color: #e3b341; color: #e3b341; }
-    #main { display: flex; flex: 1; overflow: hidden; }
+    #main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
     #map  { flex: 1; }
     #sidebar { width: 230px; background: #161b22; border-left: 1px solid #30363d;
                padding: 12px; overflow-y: auto; flex-shrink: 0; font-size: 13px; }
+    #composite-panel {
+      display: none;
+      flex-direction: column;
+      flex-shrink: 0;
+      height: 55vh;
+      background: #0d1117;
+      border-top: 2px solid #1f6feb;
+    }
+    #composite-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      flex-shrink: 0;
+    }
+    #composite-toolbar .ct-label {
+      font-size: 11px; color: #8b949e;
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    #composite-toolbar .ct-title {
+      font-size: 12px; color: #e6edf3; font-weight: 600;
+    }
+    #composite-expand-btn {
+      margin-left: auto;
+      background: #21262d; border: 1px solid #30363d;
+      color: #8b949e; border-radius: 3px;
+      padding: 2px 8px; font-size: 12px; cursor: pointer;
+    }
+    #composite-expand-btn:hover { border-color: #58a6ff; color: #e6edf3; }
+    #composite-scroll {
+      overflow-y: auto; flex: 1; padding: 8px 12px;
+    }
+    #composite-img {
+      max-width: 100%;
+      border-radius: 4px;
+      display: block;
+      min-height: 200px;
+      background: #161b22;
+    }
+    #composite-loading {
+      font-size: 12px; color: #8b949e;
+      padding: 12px 0;
+      display: none;
+    }
     .sidebar-section { margin-bottom: 16px; }
     .sidebar-title { font-size: 11px; color: #8b949e; text-transform: uppercase;
                      letter-spacing: .06em; margin-bottom: 6px; }
@@ -44,6 +88,8 @@
     #cursor-unit { font-size: 13px; color: #8b949e; }
     #cursor-ll   { font-size: 11px; color: #8b949e; margin-top: 2px; }
     #cursor-meta { font-size: 11px; color: #8b949e; margin-top: 6px; line-height: 1.6; }
+    #composite-note { font-size: 11px; color: #8b949e; line-height: 1.5;
+                      background: #21262d; border-radius: 6px; padding: 8px 10px; }
     #ready-badge { margin-left: auto; font-size: 11px; color: #3fb950; white-space: nowrap; }
   </style>
 </head>
@@ -99,7 +145,25 @@
         <div id="cursor-ll"></div>
         <div id="cursor-meta"></div>
       </div>
+      <div id="composite-note" style="display:none">
+        Composite panel products display a fixed geographic figure
+        (Mountain West domain) rather than a CONUS overlay.<br><br>
+        Use the panel below to view and scroll the image.
+        Arrow keys still step through forecast hours.
+      </div>
     </div>
+  </div>
+</div>
+
+<div id="composite-panel">
+  <div id="composite-toolbar">
+    <span class="ct-label">Mountain West</span>
+    <span class="ct-title" id="composite-title">σ(ω) 2×2 Panel</span>
+    <button id="composite-expand-btn" onclick="toggleCompositeExpand()">⤢ Expand</button>
+  </div>
+  <div id="composite-scroll">
+    <div id="composite-loading">⟳ Rendering composite figure…</div>
+    <img id="composite-img" src="" alt="Composite panel" style="display:none"/>
   </div>
 </div>
 
@@ -107,13 +171,12 @@
 <script>
 const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
 let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
-let imageOverlay = null, barbOverlay = null, pointsData = null, mslData = null, curUnits = "", curValidUtc = "";
+let imageOverlay = null, barbOverlay = null, pointsData = null;
+let curUnits = "", curValidUtc = "";
+let compositeExpanded = false;
 
-// Map
 const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
 
-// Custom pane for raster overlays — sits below the default overlayPane (z 400)
-// so vector layers always render on top regardless of add order.
 map.createPane("modelPane");
 map.getPane("modelPane").style.zIndex = 300;
 map.getPane("modelPane").style.pointerEvents = "none";
@@ -126,7 +189,6 @@ const esriTerrain = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
   { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.7 });
 
-// Start with dark gray as default
 darkGray.addTo(map);
 
 const esriRoads = L.tileLayer(
@@ -148,9 +210,7 @@ document.getElementById("chk-terrain").addEventListener("change", e => {
     map.removeLayer(darkGray);
     esriTerrain.addTo(map);
     if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay.addTo(map); }
-    if (typeof barbOverlay !== "undefined" && barbOverlay) {
-      map.removeLayer(barbOverlay); barbOverlay.addTo(map);
-    }
+    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay.addTo(map);  }
   } else {
     map.removeLayer(esriTerrain);
     darkGray.addTo(map);
@@ -164,7 +224,48 @@ document.getElementById("opacity-slider").addEventListener("input", e => {
   if (imageOverlay) imageOverlay.setOpacity(e.target.value / 100);
 });
 
-// Boot
+function isComposite() {
+  if (!curModel || !curProduct) return false;
+  const mDef = registry.find(m => m.model_id === curModel);
+  if (!mDef) return false;
+  const pDef = mDef.products.find(p => p.product_id === curProduct);
+  return pDef && pDef.render_mode === "composite";
+}
+
+function toggleCompositeExpand() {
+  compositeExpanded = !compositeExpanded;
+  const panel = document.getElementById("composite-panel");
+  const btn   = document.getElementById("composite-expand-btn");
+  if (compositeExpanded) {
+    panel.style.height = "calc(100vh - 120px)";
+    btn.textContent = "⤡ Collapse";
+  } else {
+    panel.style.height = "55vh";
+    btn.textContent = "⤢ Expand";
+  }
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+function setCompositeMode(active) {
+  const panel      = document.getElementById("composite-panel");
+  const cursorBox  = document.getElementById("cursor-box");
+  const compNote   = document.getElementById("composite-note");
+
+  if (active) {
+    panel.style.display     = "flex";
+    cursorBox.style.display = "none";
+    compNote.style.display  = "block";
+    compositeExpanded = false;
+    panel.style.height = "55vh";
+    document.getElementById("composite-expand-btn").textContent = "⤢ Expand";
+  } else {
+    panel.style.display     = "none";
+    cursorBox.style.display = "block";
+    compNote.style.display  = "none";
+  }
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
 async function boot() {
   registry = await fetch("/api/products").then(r => r.json());
   const modelSel = document.getElementById("sel-model");
@@ -186,7 +287,6 @@ async function onModelChange(modelId) {
     const o = document.createElement("option"); o.value = p.product_id; o.textContent = p.label;
     prodSel.appendChild(o);
   });
-  const prev = prodSel.onchange;
   prodSel.onchange = () => onProductChange(prodSel.value);
   await onProductChange(mDef.products[0].product_id);
 }
@@ -197,11 +297,9 @@ async function onProductChange(productId) {
   const mDef = registry.find(m => m.model_id === curModel);
   const pDef = mDef.products.find(p => p.product_id === productId);
 
-  // Show/hide region bar for Froude products
   const regionBar = document.getElementById("regionbar");
   regionBar.style.display = pDef.group === "froude" ? "flex" : "none";
 
-  // Wire up region buttons
   document.querySelectorAll("#regionbar button").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("#regionbar button").forEach(b => b.classList.remove("active"));
@@ -214,6 +312,7 @@ async function onProductChange(productId) {
   document.getElementById("cursor-unit").textContent = pDef.units;
   document.getElementById("legend-title").textContent = pDef.label;
   document.getElementById("page-title").textContent = `${mDef.label} — ${pDef.label}`;
+  document.getElementById("composite-title").textContent = pDef.label;
   renderLegend(pDef.legend);
   await loadStatus();
 }
@@ -221,10 +320,8 @@ async function onProductChange(productId) {
 async function loadStatus() {
   const status = await fetch(`/api/status/${curModel}/${curProduct}`).then(r => r.json());
   const cycleSel = document.getElementById("sel-cycle");
-  
-  // Remember what was selected before rebuilding
+
   const previousCycle = curCycle;
-  
   cycleSel.innerHTML = "";
   status.cycles.forEach(c => {
     const o = document.createElement("option");
@@ -233,7 +330,6 @@ async function loadStatus() {
     cycleSel.appendChild(o);
   });
 
-  // Restore previous selection if it still exists, otherwise default to latest
   const match = status.cycles.find(c => c.cycle_utc === previousCycle);
   curCycle = match ? previousCycle : status.cycles[0].cycle_utc;
   cycleSel.value = curCycle;
@@ -267,12 +363,40 @@ function renderHourStrip(avail, cached) {
 async function loadImage(fxx) {
   curFxx = fxx;
   setBadge("loading…", "#e3b341");
+
+  if (isComposite()) {
+    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay = null; }
+    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay  = null; }
+
+    setCompositeMode(true);
+
+    const imgEl      = document.getElementById("composite-img");
+    const loadingEl  = document.getElementById("composite-loading");
+    imgEl.style.display    = "none";
+    loadingEl.style.display = "block";
+
+    const url = `/api/composite/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+
+    imgEl.onload  = () => {
+      loadingEl.style.display = "none";
+      imgEl.style.display     = "block";
+      setBadge("100% ready", "#3fb950");
+    };
+    imgEl.onerror = () => {
+      loadingEl.textContent   = "⚠ Error loading composite image.";
+      setBadge("error", "#f85149");
+    };
+    imgEl.src = url;
+    return;
+  }
+
+  setCompositeMode(false);
+
   const opacity = document.getElementById("opacity-slider").value / 100;
   const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
   imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, pane: "modelPane" }).addTo(map);
 
-  // Wind barbs overlay
   if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
   const mDef = registry.find(m => m.model_id === curModel);
   const pDef = mDef.products.find(p => p.product_id === curProduct);
@@ -281,12 +405,11 @@ async function loadImage(fxx) {
     barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, pane: "modelPane" }).addTo(map);
   }
 
-  // Keep vector layers on top of the image overlay
   statesLayer.bringToFront();
   artccLayer.bringToFront();
 
   setBadge("100% ready", "#3fb950");
-  // Points for cursor
+
   fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
     .then(r => r.json()).then(d => {
       buildKdTree(d.points);
@@ -305,7 +428,6 @@ function setBadge(t, c) {
   el.textContent = t; el.style.color = c;
 }
 
-  
 function buildKdTree(pts) {
   const arr = new Float32Array(pts.length * 3);
   pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
@@ -324,6 +446,7 @@ function nearestValue(lat, lon) {
 }
 
 map.on("mousemove", e => {
+  if (isComposite()) return;
   const v = nearestValue(e.latlng.lat, e.latlng.lng);
   if (v !== null) {
     document.getElementById("cursor-val").textContent = v.toFixed(1);
@@ -334,7 +457,7 @@ map.on("mousemove", e => {
 
 document.addEventListener("keydown", e => {
   if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-  e.preventDefault();   // stops Leaflet / browser from panning the map
+  e.preventDefault();
   const btns = [...document.querySelectorAll(".fxx-btn")];
   if (!btns.length) return;
   const i = btns.findIndex(b => b.classList.contains("active"));

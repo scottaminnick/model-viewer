@@ -5,7 +5,7 @@ integrations = ["github:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "eccodes", "ffmpeg-full", "freetype", "ghostscript", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd"]
+packages = ["cairo", "eccodes", "ffmpeg-full", "fontconfig", "freetype", "geos", "ghostscript", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "proj", "qhull", "tcl", "tk", "xsimd"]
 
 [workflows]
 runButton = "Project"
