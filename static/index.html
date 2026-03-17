@@ -130,7 +130,12 @@
     <div class="sidebar-section">
       <div class="sidebar-title">Layers</div>
       <label class="layer-toggle"><input type="checkbox" id="chk-roads"> Roads</label>
-      <label class="layer-toggle"><input type="checkbox" id="chk-terrain"> Terrain</label>
+      <div class="layer-toggle" style="gap:4px">
+        <input type="checkbox" id="chk-terrain">
+        <span style="flex:1">Terrain</span>
+        <input id="terrain-opacity" type="range" min="0" max="100" value="45" style="width:55px; cursor:pointer"/>
+        <span id="terrain-opacity-val" style="font-size:11px;color:#8b949e;width:28px;text-align:right">45%</span>
+      </div>
       <label class="layer-toggle"><input type="checkbox" id="chk-states" checked> States</label>
       <label class="layer-toggle"><input type="checkbox" id="chk-artcc"  checked> ARTCCs</label>
     </div>
@@ -187,7 +192,7 @@ const darkGray = L.tileLayer(
 
 const esriTerrain = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.7 });
+  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.45 });
 
 darkGray.addTo(map);
 
@@ -206,15 +211,11 @@ artccLayer.addTo(map);
 
 document.getElementById("chk-roads").addEventListener("change",   e => e.target.checked ? esriRoads.addTo(map)    : map.removeLayer(esriRoads));
 document.getElementById("chk-terrain").addEventListener("change", e => {
-  if (e.target.checked) {
-    map.removeLayer(darkGray);
-    esriTerrain.addTo(map);
-    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay.addTo(map); }
-    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay.addTo(map);  }
-  } else {
-    map.removeLayer(esriTerrain);
-    darkGray.addTo(map);
-  }
+  e.target.checked ? esriTerrain.addTo(map) : map.removeLayer(esriTerrain);
+});
+document.getElementById("terrain-opacity").addEventListener("input", e => {
+  esriTerrain.setOpacity(e.target.value / 100);
+  document.getElementById("terrain-opacity-val").textContent = e.target.value + "%";
 });
 document.getElementById("chk-states").addEventListener("change", e => e.target.checked ? statesLayer.addTo(map) : map.removeLayer(statesLayer));
 document.getElementById("chk-artcc").addEventListener("change",  e => e.target.checked ? artccLayer.addTo(map)  : map.removeLayer(artccLayer));
