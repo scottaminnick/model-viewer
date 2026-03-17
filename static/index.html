@@ -35,10 +35,10 @@
     #composite-panel {
       display: none;
       flex-direction: column;
-      flex-shrink: 0;
-      height: 55vh;
+      flex: 1;
+      overflow: hidden;
       background: #0d1117;
-      border-top: 2px solid #1f6feb;
+      border-right: 1px solid #30363d;
     }
     #composite-toolbar {
       display: flex; align-items: center; gap: 8px;
@@ -54,13 +54,6 @@
     #composite-toolbar .ct-title {
       font-size: 12px; color: #e6edf3; font-weight: 600;
     }
-    #composite-expand-btn {
-      margin-left: auto;
-      background: #21262d; border: 1px solid #30363d;
-      color: #8b949e; border-radius: 3px;
-      padding: 2px 8px; font-size: 12px; cursor: pointer;
-    }
-    #composite-expand-btn:hover { border-color: #58a6ff; color: #e6edf3; }
     #composite-scroll {
       overflow-y: auto; flex: 1; padding: 8px 12px;
     }
@@ -108,7 +101,7 @@
     <span class="ctrl-label">Cycle</span>
     <select id="sel-cycle"></select>
   </div>
-  <div class="ctrl-group">
+  <div class="ctrl-group" id="opacity-ctrl">
     <span class="ctrl-label">Opacity</span>
     <input id="opacity-slider" type="range" min="0" max="100" value="85" style="width:80px"/>
     <span id="opacity-val" style="font-size:12px;color:#8b949e;width:32px">85%</span>
@@ -126,6 +119,16 @@
 
 <div id="main">
   <div id="map"></div>
+  <div id="composite-panel">
+    <div id="composite-toolbar">
+      <span class="ct-label">Mountain West</span>
+      <span class="ct-title" id="composite-title">σ(ω) 2×2 Panel</span>
+    </div>
+    <div id="composite-scroll">
+      <div id="composite-loading">⟳ Rendering composite figure…</div>
+      <img id="composite-img" src="" alt="Composite panel" style="display:none"/>
+    </div>
+  </div>
   <div id="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-title">Layers</div>
@@ -160,25 +163,12 @@
   </div>
 </div>
 
-<div id="composite-panel">
-  <div id="composite-toolbar">
-    <span class="ct-label">Mountain West</span>
-    <span class="ct-title" id="composite-title">σ(ω) 2×2 Panel</span>
-    <button id="composite-expand-btn" onclick="toggleCompositeExpand()">⤢ Expand</button>
-  </div>
-  <div id="composite-scroll">
-    <div id="composite-loading">⟳ Rendering composite figure…</div>
-    <img id="composite-img" src="" alt="Composite panel" style="display:none"/>
-  </div>
-</div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
 let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
 let imageOverlay = null, barbOverlay = null, pointsData = null;
 let curUnits = "", curValidUtc = "";
-let compositeExpanded = false;
 
 const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
 
@@ -233,41 +223,25 @@ function isComposite() {
   return pDef && pDef.render_mode === "composite";
 }
 
-function toggleCompositeExpand() {
-  compositeExpanded = !compositeExpanded;
-  const panel = document.getElementById("composite-panel");
-  const btn   = document.getElementById("composite-expand-btn");
-  if (compositeExpanded) {
-    panel.style.height = "calc(100vh - 120px)";
-    btn.textContent = "⤡ Collapse";
-  } else {
-    panel.style.height = "55vh";
-    btn.textContent = "⤢ Expand";
-  }
-  setTimeout(() => map.invalidateSize(), 50);
-}
-
 function setCompositeMode(active) {
   const panel      = document.getElementById("composite-panel");
-  const mainEl     = document.getElementById("main");
+  const mapEl      = document.getElementById("map");
   const cursorBox  = document.getElementById("cursor-box");
   const compNote   = document.getElementById("composite-note");
+  const opacityCtrl = document.getElementById("opacity-ctrl");
 
   if (active) {
-    mainEl.style.display    = "none";
+    mapEl.style.display     = "none";
     panel.style.display     = "flex";
     cursorBox.style.display = "none";
     compNote.style.display  = "block";
-    compositeExpanded = false;
-    panel.style.height = "100%";
-    panel.style.flex   = "1";
-    document.getElementById("composite-expand-btn").textContent = "⤢ Expand";
+    opacityCtrl.style.display = "none";
   } else {
-    mainEl.style.display    = "flex";
+    mapEl.style.display     = "";
     panel.style.display     = "none";
-    panel.style.flex        = "";
     cursorBox.style.display = "block";
     compNote.style.display  = "none";
+    opacityCtrl.style.display = "flex";
   }
   setTimeout(() => map.invalidateSize(), 50);
 }
