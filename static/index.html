@@ -248,18 +248,23 @@ function toggleCompositeExpand() {
 
 function setCompositeMode(active) {
   const panel      = document.getElementById("composite-panel");
+  const mainEl     = document.getElementById("main");
   const cursorBox  = document.getElementById("cursor-box");
   const compNote   = document.getElementById("composite-note");
 
   if (active) {
+    mainEl.style.display    = "none";
     panel.style.display     = "flex";
     cursorBox.style.display = "none";
     compNote.style.display  = "block";
     compositeExpanded = false;
-    panel.style.height = "55vh";
+    panel.style.height = "100%";
+    panel.style.flex   = "1";
     document.getElementById("composite-expand-btn").textContent = "⤢ Expand";
   } else {
+    mainEl.style.display    = "flex";
     panel.style.display     = "none";
+    panel.style.flex        = "";
     cursorBox.style.display = "block";
     compNote.style.display  = "none";
   }

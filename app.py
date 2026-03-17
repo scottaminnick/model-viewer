@@ -176,6 +176,11 @@ def api_composite(model_id, product_id, cycle_utc, fxx):
                         headers={"Cache-Control": f"public, max-age={TTL}"})
 
     prod = get_product(model_id, product_id)
+    if not hasattr(prod, "get_composite_png"):
+        return Response(
+            f"Product {model_id}/{product_id} does not support composite rendering",
+            status=400,
+        )
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     png = prod.get_composite_png(cycle_dt, fxx)
     IMAGE_CACHE.set(model_id, cache_id, cycle_utc, fxx, png)
