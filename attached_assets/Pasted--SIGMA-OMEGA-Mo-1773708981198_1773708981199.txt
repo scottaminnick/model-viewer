@@ -1,0 +1,90 @@
+# ══════════════════════════════════════════════════════════════════════════════
+
+# SIGMA-OMEGA — Mountain wave σ(ω) indicator   (HRRR only)
+
+# 
+
+# Physical concept: mountain waves produce tight alternating up/down motion
+
+# cells.  The *spatial* standard deviation of omega (Pa s⁻¹) in a 5×5 grid-
+
+# point neighbourhood spikes wherever wave activity is present, even when the
+
+# mean omega is near zero.
+
+# 
+
+# Rendered as a 2×2 panel PNG (four pressure levels side-by-side) covering
+
+# the Mountain West domain.  Uses render_mode=“composite” which routes through
+
+# /api/composite/ instead of the standard /api/image/ pipeline.
+
+# 
+
+# Two sub-products registered separately so they appear as distinct entries
+
+# in the product dropdown (same pattern as froude_front_range):
+
+# sigma_omega_lo : 500 / 600 / 700 / 800 hPa  — mid/lower troposphere
+
+# sigma_omega_hi : 200 / 250 / 300 / 400 hPa  — upper trop / tropopause
+
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Dummy colormap/norm/legend — actual rendering is done inside get_composite_png()
+
+# and never touches these.  They must be present because ProductDef requires them.
+
+_sig_cmap, _sig_norm, _sig_legend = _scale(
+bounds = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0],
+colors = [”#330000”, “#660000”, “#cc2200”, “#ff6600”, “#ffcc00”],
+labels = [”<0.5  Pa/s σ”, “0.5–1.0”, “1.0–1.5”, “1.5–2.0”, “≥2.0”],
+)
+
+@dataclass
+class _SigmaOmega(ProductDef):
+“””
+σ(ω) mountain-wave product — 2×2 composite panel, HRRR only.
+
+```
+get_composite_png() is called by /api/composite/ and returns pre-rendered
+PNG bytes containing the full four-panel figure.  get_values() raises
+NotImplementedError so that accidental hits to /api/image/ fail loudly
+rather than silently producing garbage.
+"""
+level_set: str = "lo"   # "lo" = lower trop, "hi" = upper trop
+
+def get_values(self, cycle_dt, fxx):
+    raise NotImplementedError(
+        "SigmaOmega is a composite product — use /api/composite/, "
+        "not /api/image/."
+    )
+
+def get_composite_png(self, cycle_dt, fxx) -> bytes:
+    from products.science.sigma_omega import fetch_sigma_omega_composite
+    return fetch_sigma_omega_composite(
+        self.herbie_model, self.herbie_product,
+        cycle_dt, fxx,
+        level_set=self.level_set,
+    )
+```
+
+register(_SigmaOmega(
+model_id=“hrrr”, product_id=“sigma_omega_lo”,
+label=“σ(ω) Mountain Wave — Lower Trop (500–800 hPa)”, units=“Pa/s σ”,
+herbie_model=“hrrr”, herbie_product=“prs”,
+searches=[],
+level_set=“lo”,
+render_mode=“composite”,
+cmap=_sig_cmap, norm=_sig_norm, legend=_sig_legend,
+))
+register(_SigmaOmega(
+model_id=“hrrr”, product_id=“sigma_omega_hi”,
+label=“σ(ω) Mountain Wave — Upper Trop (200–400 hPa)”, units=“Pa/s σ”,
+herbie_model=“hrrr”, herbie_product=“prs”,
+searches=[],
+level_set=“hi”,
+render_mode=“composite”,
+cmap=_sig_cmap, norm=_sig_norm, legend=_sig_legend,
+))

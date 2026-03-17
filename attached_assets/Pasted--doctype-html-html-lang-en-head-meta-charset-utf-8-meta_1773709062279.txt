@@ -1,0 +1,508 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Model Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3;
+           height: 100vh; display: flex; flex-direction: column; }
+    #topbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+              background: #161b22; border-bottom: 1px solid #30363d;
+              flex-shrink: 0; flex-wrap: wrap; }
+    #topbar h1 { font-size: 14px; font-weight: 700; color: #58a6ff; white-space: nowrap; }
+    .ctrl-group { display: flex; align-items: center; gap: 4px; }
+    .ctrl-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .04em; }
+    select { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+             border-radius: 4px; padding: 3px 6px; font-size: 13px; cursor: pointer; }
+    select:hover { border-color: #58a6ff; }
+    #hourbar { display: flex; align-items: center; gap: 2px; padding: 4px 12px;
+               background: #0d1117; border-bottom: 1px solid #21262d;
+               flex-shrink: 0; overflow-x: auto; }
+    #hourbar .hl { font-size: 11px; color: #8b949e; margin-right: 6px; white-space: nowrap; }
+    .fxx-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e;
+               border-radius: 3px; padding: 2px 7px; font-size: 12px;
+               cursor: pointer; white-space: nowrap; }
+    .fxx-btn:hover  { border-color: #58a6ff; color: #e6edf3; }
+    .fxx-btn.active { background: #1f6feb; border-color: #58a6ff; color: #fff; }
+    .fxx-btn.loading { border-color: #e3b341; color: #e3b341; }
+
+```
+/* ── main layout ─────────────────────────────────────────────────────── */
+#main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+#map  { flex: 1; }
+#sidebar { width: 230px; background: #161b22; border-left: 1px solid #30363d;
+           padding: 12px; overflow-y: auto; flex-shrink: 0; font-size: 13px; }
+
+/* ── composite panel — hidden by default, shown for composite products ── */
+/* Sits below #main in the flex column; its presence shrinks #main's map. */
+#composite-panel {
+  display: none;          /* toggled to 'flex' by JS */
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 55vh;
+  background: #0d1117;
+  border-top: 2px solid #1f6feb;
+}
+#composite-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
+}
+#composite-toolbar .ct-label {
+  font-size: 11px; color: #8b949e;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+#composite-toolbar .ct-title {
+  font-size: 12px; color: #e6edf3; font-weight: 600;
+}
+#composite-expand-btn {
+  margin-left: auto;
+  background: #21262d; border: 1px solid #30363d;
+  color: #8b949e; border-radius: 3px;
+  padding: 2px 8px; font-size: 12px; cursor: pointer;
+}
+#composite-expand-btn:hover { border-color: #58a6ff; color: #e6edf3; }
+#composite-scroll {
+  overflow-y: auto; flex: 1; padding: 8px 12px;
+}
+#composite-img {
+  max-width: 100%;
+  border-radius: 4px;
+  display: block;
+  /* Show a loading shimmer until the image loads */
+  min-height: 200px;
+  background: #161b22;
+}
+#composite-loading {
+  font-size: 12px; color: #8b949e;
+  padding: 12px 0;
+  display: none;
+}
+
+/* ── sidebar ─────────────────────────────────────────────────────────── */
+.sidebar-section { margin-bottom: 16px; }
+.sidebar-title { font-size: 11px; color: #8b949e; text-transform: uppercase;
+                 letter-spacing: .06em; margin-bottom: 6px; }
+.legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 12px; }
+.legend-swatch { width: 16px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+.layer-toggle { display: flex; align-items: center; gap: 6px; margin: 4px 0; cursor: pointer; }
+.layer-toggle input { cursor: pointer; }
+#cursor-box { background: #21262d; border-radius: 6px; padding: 8px 10px; }
+#cursor-val  { font-size: 22px; font-weight: 700; color: #58a6ff; }
+#cursor-unit { font-size: 13px; color: #8b949e; }
+#cursor-ll   { font-size: 11px; color: #8b949e; margin-top: 2px; }
+#cursor-meta { font-size: 11px; color: #8b949e; margin-top: 6px; line-height: 1.6; }
+/* Note for composite products shown in sidebar cursor box */
+#composite-note { font-size: 11px; color: #8b949e; line-height: 1.5;
+                  background: #21262d; border-radius: 6px; padding: 8px 10px; }
+#ready-badge { margin-left: auto; font-size: 11px; color: #3fb950; white-space: nowrap; }
+```
+
+  </style>
+</head>
+<body>
+<div id="topbar">
+  <h1 id="page-title">Model Viewer</h1>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Model</span>
+    <select id="sel-model"></select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Product</span>
+    <select id="sel-product"></select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Cycle</span>
+    <select id="sel-cycle"></select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Opacity</span>
+    <input id="opacity-slider" type="range" min="0" max="100" value="85" style="width:80px"/>
+    <span id="opacity-val" style="font-size:12px;color:#8b949e;width:32px">85%</span>
+  </div>
+  <span id="ready-badge">— ready</span>
+</div>
+
+<div id="hourbar"><span class="hl">HOUR →</span></div>
+
+<!-- Normal map + sidebar -->
+
+<div id="main">
+  <div id="map"></div>
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Layers</div>
+      <label class="layer-toggle"><input type="checkbox" id="chk-roads"> Roads</label>
+      <label class="layer-toggle"><input type="checkbox" id="chk-terrain"> Terrain</label>
+      <label class="layer-toggle"><input type="checkbox" id="chk-states" checked> States</label>
+      <label class="layer-toggle"><input type="checkbox" id="chk-artcc"  checked> ARTCCs</label>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title" id="legend-title">Legend</div>
+      <div id="legend-items"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Cursor Sample</div>
+      <!-- Shown for normal (non-composite) products -->
+      <div id="cursor-box">
+        <div><span id="cursor-val">—</span> <span id="cursor-unit"></span></div>
+        <div id="cursor-ll"></div>
+        <div id="cursor-meta"></div>
+      </div>
+      <!-- Shown for composite products instead of cursor box -->
+      <div id="composite-note" style="display:none">
+        Composite panel products display a fixed geographic figure
+        (Mountain West domain) rather than a CONUS overlay.<br><br>
+        Use the panel below to view and scroll the image.
+        Arrow keys still step through forecast hours.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Composite panel — appears below #main for multi-panel products -->
+
+<div id="composite-panel">
+  <div id="composite-toolbar">
+    <span class="ct-label">Mountain West</span>
+    <span class="ct-title" id="composite-title">σ(ω) 2×2 Panel</span>
+    <button id="composite-expand-btn" onclick="toggleCompositeExpand()">⤢ Expand</button>
+  </div>
+  <div id="composite-scroll">
+    <div id="composite-loading">⟳ Rendering composite figure…</div>
+    <img id="composite-img" src="" alt="Composite panel" style="display:none"/>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
+let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
+let imageOverlay = null, barbOverlay = null, pointsData = null;
+let curUnits = "", curValidUtc = "";
+let compositeExpanded = false;   // track expand/collapse state
+
+// ── Map setup ──────────────────────────────────────────────────────────────
+const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
+
+const darkGray = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri", maxZoom: 16 });
+
+const esriTerrain = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.7 });
+
+darkGray.addTo(map);
+
+const esriRoads = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri", maxZoom: 16, opacity: 0.7 });
+
+const statesLayer = L.geoJSON(null, {
+  style: { color:"#ffffff", weight:1, fill:false, opacity:0.6 }
+});
+fetch("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
+  .then(r => r.json()).then(gj => statesLayer.addData(gj));
+statesLayer.addTo(map);
+
+const artccLayer = L.geoJSON(null, {
+  style: { color:"#f0a500", weight:1.2, fill:false, dashArray:"5,3", opacity:0.8 }
+});
+fetch("/api/artcc/boundaries").then(r => r.json()).then(gj => artccLayer.addData(gj));
+artccLayer.addTo(map);
+
+// ── Layer toggles ──────────────────────────────────────────────────────────
+document.getElementById("chk-roads").addEventListener("change", e =>
+  e.target.checked ? esriRoads.addTo(map) : map.removeLayer(esriRoads));
+
+document.getElementById("chk-terrain").addEventListener("change", e => {
+  if (e.target.checked) {
+    map.removeLayer(darkGray);
+    esriTerrain.addTo(map);
+    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay.addTo(map); }
+    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay.addTo(map);  }
+  } else {
+    map.removeLayer(esriTerrain);
+    darkGray.addTo(map);
+  }
+});
+document.getElementById("chk-states").addEventListener("change", e =>
+  e.target.checked ? statesLayer.addTo(map) : map.removeLayer(statesLayer));
+document.getElementById("chk-artcc").addEventListener("change",  e =>
+  e.target.checked ? artccLayer.addTo(map)  : map.removeLayer(artccLayer));
+
+document.getElementById("opacity-slider").addEventListener("input", e => {
+  document.getElementById("opacity-val").textContent = e.target.value + "%";
+  if (imageOverlay) imageOverlay.setOpacity(e.target.value / 100);
+});
+
+// ── Helper: is the active product a composite? ─────────────────────────────
+function isComposite() {
+  if (!curModel || !curProduct) return false;
+  const mDef = registry.find(m => m.model_id === curModel);
+  if (!mDef) return false;
+  const pDef = mDef.products.find(p => p.product_id === curProduct);
+  return pDef && pDef.render_mode === "composite";
+}
+
+// ── Composite panel expand/collapse ───────────────────────────────────────
+function toggleCompositeExpand() {
+  compositeExpanded = !compositeExpanded;
+  const panel = document.getElementById("composite-panel");
+  const btn   = document.getElementById("composite-expand-btn");
+  if (compositeExpanded) {
+    // Full screen-height panel; map collapses to zero
+    panel.style.height = "calc(100vh - 120px)";  // leave room for topbar+hourbar
+    btn.textContent = "⤡ Collapse";
+  } else {
+    panel.style.height = "55vh";
+    btn.textContent = "⤢ Expand";
+  }
+  // Let Leaflet know the map container changed size
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+// ── Show/hide composite panel ──────────────────────────────────────────────
+function setCompositeMode(active) {
+  const panel      = document.getElementById("composite-panel");
+  const cursorBox  = document.getElementById("cursor-box");
+  const compNote   = document.getElementById("composite-note");
+  const opSlider   = document.getElementById("opacity-slider").parentElement;
+
+  if (active) {
+    panel.style.display     = "flex";
+    cursorBox.style.display = "none";
+    compNote.style.display  = "block";
+    // Reset expand state on product switch
+    compositeExpanded = false;
+    panel.style.height = "55vh";
+    document.getElementById("composite-expand-btn").textContent = "⤢ Expand";
+  } else {
+    panel.style.display     = "none";
+    cursorBox.style.display = "block";
+    compNote.style.display  = "none";
+  }
+  // Leaflet needs to know its container resized
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  registry = await fetch("/api/products").then(r => r.json());
+  const modelSel = document.getElementById("sel-model");
+  registry.forEach(m => {
+    const o = document.createElement("option");
+    o.value = m.model_id; o.textContent = m.label;
+    modelSel.appendChild(o);
+  });
+  modelSel.addEventListener("change", () => onModelChange(modelSel.value));
+  await onModelChange(registry[0].model_id);
+}
+
+async function onModelChange(modelId) {
+  curModel = modelId;
+  const mDef = registry.find(m => m.model_id === modelId);
+  const prodSel = document.getElementById("sel-product");
+  prodSel.innerHTML = "";
+  mDef.products.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p.product_id; o.textContent = p.label;
+    prodSel.appendChild(o);
+  });
+  prodSel.onchange = () => onProductChange(prodSel.value);
+  await onProductChange(mDef.products[0].product_id);
+}
+
+async function onProductChange(productId) {
+  curProduct = productId;
+  document.getElementById("sel-product").value = productId;
+  const mDef = registry.find(m => m.model_id === curModel);
+  const pDef = mDef.products.find(p => p.product_id === productId);
+  curUnits = pDef.units;
+  document.getElementById("cursor-unit").textContent = pDef.units;
+  document.getElementById("legend-title").textContent = pDef.label;
+  document.getElementById("page-title").textContent = `${mDef.label} — ${pDef.label}`;
+  document.getElementById("composite-title").textContent = pDef.label;
+  renderLegend(pDef.legend);
+  await loadStatus();
+}
+
+async function loadStatus() {
+  const status = await fetch(`/api/status/${curModel}/${curProduct}`).then(r => r.json());
+  const cycleSel = document.getElementById("sel-cycle");
+
+  const previousCycle = curCycle;
+  cycleSel.innerHTML = "";
+  status.cycles.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c.cycle_utc;
+    o.textContent = `${c.cycle_utc.replace("+00:00","Z")}  (${c.pct_complete}% ready)`;
+    cycleSel.appendChild(o);
+  });
+
+  const match = status.cycles.find(c => c.cycle_utc === previousCycle);
+  curCycle = match ? previousCycle : status.cycles[0].cycle_utc;
+  cycleSel.value = curCycle;
+
+  const cycleData = match || status.cycles[0];
+  const avail = cycleData.available_hours;
+  renderHourStrip(avail, cycleData.cached_hours || []);
+  cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
+  curFxx = avail.includes(1) ? 1 : avail[0];
+  await loadImage(curFxx);
+}
+
+function renderHourStrip(avail, cached) {
+  const bar = document.getElementById("hourbar");
+  bar.innerHTML = `<span class="hl">HOUR →</span>`;
+  avail.forEach(fxx => {
+    const btn = document.createElement("button");
+    btn.className = "fxx-btn";
+    btn.textContent = `F${String(fxx).padStart(2,"0")}`;
+    btn.dataset.fxx = fxx;
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".fxx-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active", "loading");
+      loadImage(fxx).then(() => btn.classList.remove("loading"));
+    });
+    if (fxx === curFxx) btn.classList.add("active");
+    bar.appendChild(btn);
+  });
+}
+
+async function loadImage(fxx) {
+  curFxx = fxx;
+  setBadge("loading…", "#e3b341");
+
+  // ── Composite path (sigma-omega 2×2 panel) ───────────────────────────────
+  if (isComposite()) {
+    // Remove any lingering normal overlays
+    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay = null; }
+    if (barbOverlay)  { map.removeLayer(barbOverlay);  barbOverlay  = null; }
+
+    setCompositeMode(true);
+
+    const imgEl      = document.getElementById("composite-img");
+    const loadingEl  = document.getElementById("composite-loading");
+    imgEl.style.display    = "none";
+    loadingEl.style.display = "block";
+
+    const url = `/api/composite/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+
+    imgEl.onload  = () => {
+      loadingEl.style.display = "none";
+      imgEl.style.display     = "block";
+      setBadge("100% ready", "#3fb950");
+    };
+    imgEl.onerror = () => {
+      loadingEl.textContent   = "⚠ Error loading composite image. Check Railway logs.";
+      setBadge("error", "#f85149");
+    };
+    imgEl.src = url;
+    return;
+  }
+
+  // ── Normal overlay path ───────────────────────────────────────────────────
+  setCompositeMode(false);
+
+  const opacity = document.getElementById("opacity-slider").value / 100;
+  const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+  if (imageOverlay) map.removeLayer(imageOverlay);
+  imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, {
+    opacity, interactive: false, zIndex: 200
+  }).addTo(map);
+
+  // Wind barbs overlay
+  if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
+  const mDef = registry.find(m => m.model_id === curModel);
+  const pDef = mDef.products.find(p => p.product_id === curProduct);
+  if (pDef.supports_barbs) {
+    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+    barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, {
+      opacity: 1.0, interactive: false, zIndex: 201
+    }).addTo(map);
+  }
+
+  setBadge("100% ready", "#3fb950");
+
+  // Points for cursor sampling
+  fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
+    .then(r => r.json()).then(d => {
+      buildKdTree(d.points);
+      curValidUtc = (d.valid_utc || "").replace("+00:00","Z");
+      const cycleShort = (curCycle || "").replace("+00:00","Z");
+      document.getElementById("cursor-meta").innerHTML =
+        `Model: <b>${curModel.toUpperCase()}</b><br>` +
+        `Cycle: ${cycleShort}<br>` +
+        `Valid: ${curValidUtc} (F${String(fxx).padStart(2,"0")})<br>` +
+        `Points: ${d.point_count.toLocaleString()}`;
+    });
+}
+
+function setBadge(t, c) {
+  const el = document.getElementById("ready-badge");
+  el.textContent = t; el.style.color = c;
+}
+
+function buildKdTree(pts) {
+  const arr = new Float32Array(pts.length * 3);
+  pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
+  pointsData = arr;
+}
+
+function nearestValue(lat, lon) {
+  if (!pointsData) return null;
+  const n = pointsData.length / 3;
+  let best = Infinity, val = null;
+  for (let i = 0; i < n; i++) {
+    const d = (pointsData[i*3]-lat)**2 + (pointsData[i*3+1]-lon)**2;
+    if (d < best) { best = d; val = pointsData[i*3+2]; }
+  }
+  return val;
+}
+
+map.on("mousemove", e => {
+  if (isComposite()) return;   // no cursor sampling for composite products
+  const v = nearestValue(e.latlng.lat, e.latlng.lng);
+  if (v !== null) {
+    document.getElementById("cursor-val").textContent = v.toFixed(1);
+    document.getElementById("cursor-ll").textContent =
+      `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
+  }
+});
+
+// Arrow keys step through forecast hours (works for both normal and composite)
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  e.preventDefault();
+  const btns = [...document.querySelectorAll(".fxx-btn")];
+  if (!btns.length) return;
+  const i = btns.findIndex(b => b.classList.contains("active"));
+  if (e.key === "ArrowRight" && i < btns.length-1) btns[i+1].click();
+  if (e.key === "ArrowLeft"  && i > 0)             btns[i-1].click();
+});
+
+function renderLegend(legend) {
+  const el = document.getElementById("legend-items");
+  el.innerHTML = "";
+  (legend||[]).forEach(item => {
+    const d = document.createElement("div");
+    d.className = "legend-item";
+    d.innerHTML = `<div class="legend-swatch" style="background:${item.color}"></div><span>${item.label}</span>`;
+    el.appendChild(d);
+  });
+}
+
+boot();
+</script>
+
+</body>
+</html>
