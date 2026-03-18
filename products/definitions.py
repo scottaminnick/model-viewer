@@ -803,53 +803,72 @@ register(_TurbulenceRi(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  SIGMA OMEGA (σω) — Mountain Wave Composite   (HRRR only)
+#  SIGMA OMEGA (σω) — Mountain Wave   (HRRR only)
 #
 #  Spatial standard deviation of omega (VVEL) in a 5×5 neighbourhood.
-#  Rendered as a 2×2 cartopy panel figure (composite), NOT as a CONUS overlay.
-#  Two level sets: "lo" (500–800 hPa) and "hi" (200–400 hPa).
+#  One product per pressure level; rendered as a standard CONUS overlay so
+#  opacity, terrain blending, and cursor sampling all work normally.
+#  Hi set: 200, 250, 300, 400 hPa   Lo set: 500, 600, 700, 800 hPa
 # ══════════════════════════════════════════════════════════════════════════════
 
-_sigma_omega_legend = [
-    {"color": "#ffffff", "label": "< 0.2 Pa/s"},
-    {"color": "#ffeda0", "label": "0.2–0.6 Pa/s"},
-    {"color": "#feb24c", "label": "0.6–1.0 Pa/s"},
-    {"color": "#f03b20", "label": "1.0–1.6 Pa/s"},
-    {"color": "#bd0026", "label": "≥ 1.6 Pa/s"},
-]
+import matplotlib.cm as _cm_so
+import logging as _log_so
+
+_log_sigma = _log_so.getLogger(__name__)
+
+
+def _so_cmap_legend(bounds: list, n: int) -> tuple:
+    """Discretise hot_r into n bins matching the given boundary list."""
+    raw   = [_cm_so.hot_r(i / (n - 1)) for i in range(n)]
+    hexc  = ["#{:02x}{:02x}{:02x}".format(int(r*255), int(g*255), int(b*255))
+             for r, g, b, *_ in raw]
+    cmap  = mcolors.ListedColormap(hexc)
+    norm  = mcolors.BoundaryNorm(bounds, cmap.N)
+    labels = [f"<{bounds[1]:.2f}"] + \
+             [f"{bounds[i]:.2f}–{bounds[i+1]:.2f}" for i in range(1, n - 1)] + \
+             [f"≥{bounds[-2]:.2f}"]
+    legend = [{"color": c, "label": f"{l} Pa/s"} for c, l in zip(hexc, labels)]
+    return cmap, norm, legend
+
+
+_so_hi_bounds = [round(x, 2) for x in [0.0] + list(np.arange(0.15, 1.51, 0.15))]
+_so_lo_bounds = [round(x, 2) for x in [0.0] + list(np.arange(0.20, 2.01, 0.20))]
+_so_hi_cmap, _so_hi_norm, _so_hi_legend = _so_cmap_legend(_so_hi_bounds, 10)
+_so_lo_cmap, _so_lo_norm, _so_lo_legend = _so_cmap_legend(_so_lo_bounds, 10)
+
 
 @dataclass
-class _SigmaOmega(ProductDef):
-    """Composite 2×2 panel product — uses get_composite_png() instead of get_values()."""
-    level_set: str = "lo"
-    render_mode: str = "composite"
+class _SigmaOmegaLevel(ProductDef):
+    """σ(ω) at one pressure level — full-CONUS map overlay."""
+    level_hpa: int = 500
 
     def get_values(self, cycle_dt, fxx):
-        raise NotImplementedError(
-            "SigmaOmega is a composite product — use get_composite_png()"
-        )
-
-    def get_composite_png(self, cycle_dt, fxx) -> bytes:
-        from products.science.sigma_omega import fetch_sigma_omega_composite
-        return fetch_sigma_omega_composite(
+        from products.science.sigma_omega import _fetch_level, _compute_stdev_omega
+        tag = (f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}"
+               f"_{fxx:02d}_so{self.level_hpa}")
+        _log_sigma.info("sigma_omega overlay: %d hPa  F%02d", self.level_hpa, fxx)
+        lat2d, lon2d, omega, _ = _fetch_level(
             self.herbie_model, self.herbie_product,
-            cycle_dt, fxx,
-            level_set=self.level_set,
+            cycle_dt, fxx, self.level_hpa, tag,
         )
+        stdev = _compute_stdev_omega(omega)
+        return lat2d, lon2d, stdev
 
-register(_SigmaOmega(
-    model_id="hrrr", product_id="sigma_omega_lo",
-    label="σ(ω) Mountain Wave — Lower Trop (500–800 hPa)", units="Pa/s",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[],
-    level_set="lo",
-    cmap=None, norm=None, legend=_sigma_omega_legend,
-))
-register(_SigmaOmega(
-    model_id="hrrr", product_id="sigma_omega_hi",
-    label="σ(ω) Mountain Wave — Upper Trop (200–400 hPa)", units="Pa/s",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[],
-    level_set="hi",
-    cmap=None, norm=None, legend=_sigma_omega_legend,
-))
+
+for _so_lvl in [200, 250, 300, 400]:
+    register(_SigmaOmegaLevel(
+        model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+        label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
+        herbie_model="hrrr", herbie_product="prs",
+        searches=[], level_hpa=_so_lvl,
+        cmap=_so_hi_cmap, norm=_so_hi_norm, legend=_so_hi_legend,
+    ))
+
+for _so_lvl in [500, 600, 700, 800]:
+    register(_SigmaOmegaLevel(
+        model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+        label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
+        herbie_model="hrrr", herbie_product="prs",
+        searches=[], level_hpa=_so_lvl,
+        cmap=_so_lo_cmap, norm=_so_lo_norm, legend=_so_lo_legend,
+    ))
