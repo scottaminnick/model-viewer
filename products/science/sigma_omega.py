@@ -1,5 +1,5 @@
 """
-products/science/sigma_omega.py — Mountain wave σ(ω) product.
+products/science/sigma_omega.py — Mountain wave σ(ω) computation helpers.
 
 ## Physical basis
 
@@ -15,21 +15,26 @@ zero — making it a clean, model-independent wave signal.
 For each target pressure level:
 
 1. Fetch omega (VVEL, Pa s⁻¹) and geopotential height via Herbie.
-1. Compute σ(ω) with scipy.ndimage.generic_filter (5×5 sliding window).
+2. Compute σ(ω) with scipy.ndimage.generic_filter (5×5 sliding window).
    This replaces the original nested Python loop and is ~100× faster.
-1. Apply a light Gaussian smooth to reduce single-point speckle.
-1. Overlay geopotential height contours for meteorological context.
+3. Apply a light Gaussian smooth to reduce single-point speckle.
 
-## Output
+## Primary usage (CONUS overlays)
 
-A 2×2 matplotlib figure (PNG bytes) covering the Mountain West domain,
-styled to match the model-viewer dark theme.  Returned by
-fetch_sigma_omega_composite() and served via /api/composite/.
+`_fetch_level()` and `_compute_stdev_omega()` are called by
+`_SigmaOmegaLevel.get_values()` in products/definitions.py to produce
+full-CONUS (lat2d, lon2d, stdev) arrays served via /api/image/ — one
+product per pressure level, identical pipeline to Wind Gusts, Icing, etc.
 
-## Level sets
+Eight HRRR products are registered:
+  hi set: 200, 250, 300, 400 hPa  (upper trop / tropopause)
+  lo set: 500, 600, 700, 800 hPa  (mid/lower troposphere)
 
-"lo" : [500, 600, 700, 800] hPa  — mid/lower troposphere
-"hi" : [200, 250, 300, 400] hPa  — upper troposphere / tropopause
+## Legacy composite helper
+
+`fetch_sigma_omega_composite()` produces a 2×2 cartopy panel figure for
+the Mountain West domain.  Retained for potential future use; the
+/api/composite/ endpoint remains in app.py but is not linked from the UI.
 
 Adapted from HRRR_four_level_stdev_omega_{lo,hi}_forecast scripts
 (R. Connell) for the model-viewer Herbie pipeline.
