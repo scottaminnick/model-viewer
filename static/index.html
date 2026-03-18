@@ -29,7 +29,22 @@
     .fxx-btn.active { background: #1f6feb; border-color: #58a6ff; color: #fff; }
     .fxx-btn.loading { border-color: #e3b341; color: #e3b341; }
     #main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-    #map  { flex: 1; }
+    #map  { flex: 1; position: relative; }
+    #map-loading {
+      display: none; position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 800; pointer-events: none;
+      background: rgba(13,17,23,0.82); border: 1px solid #30363d;
+      border-radius: 10px; padding: 18px 28px; text-align: center;
+      color: #e6edf3; font-size: 12px; min-width: 120px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin-ring {
+      width: 28px; height: 28px;
+      border: 3px solid #30363d; border-top-color: #58a6ff;
+      border-radius: 50%; animation: spin 0.75s linear infinite;
+      margin: 0 auto 10px;
+    }
     #sidebar { width: 230px; background: #161b22; border-left: 1px solid #30363d;
                padding: 12px; overflow-y: auto; flex-shrink: 0; font-size: 13px; }
     .sidebar-section { margin-bottom: 16px; }
@@ -79,7 +94,12 @@
 </div>
 
 <div id="main">
-  <div id="map"></div>
+  <div id="map">
+    <div id="map-loading">
+      <div class="spin-ring"></div>
+      <div id="map-loading-msg">Rendering…</div>
+    </div>
+  </div>
   <div id="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-title">Layers</div>
@@ -256,11 +276,15 @@ function renderHourStrip(avail, cached) {
 async function loadImage(fxx) {
   curFxx = fxx;
   setBadge("loading…", "#e3b341");
+  showLoading("Rendering…");
 
   const opacity = document.getElementById("opacity-slider").value / 100;
   const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
   imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, pane: "modelPane" }).addTo(map);
+
+  imageOverlay.once("load",  () => { hideLoading(); setBadge("100% ready", "#3fb950"); });
+  imageOverlay.once("error", () => { hideLoading(); setBadge("error", "#f85149"); });
 
   if (barbOverlay) { map.removeLayer(barbOverlay); barbOverlay = null; }
   const mDef = registry.find(m => m.model_id === curModel);
@@ -272,8 +296,6 @@ async function loadImage(fxx) {
 
   statesLayer.bringToFront();
   artccLayer.bringToFront();
-
-  setBadge("100% ready", "#3fb950");
 
   fetch(`/api/points/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`)
     .then(r => r.json()).then(d => {
@@ -291,6 +313,16 @@ async function loadImage(fxx) {
 function setBadge(t, c) {
   const el = document.getElementById("ready-badge");
   el.textContent = t; el.style.color = c;
+}
+
+function showLoading(msg) {
+  const el = document.getElementById("map-loading");
+  document.getElementById("map-loading-msg").textContent = msg || "Rendering…";
+  el.style.display = "block";
+}
+
+function hideLoading() {
+  document.getElementById("map-loading").style.display = "none";
 }
 
 function buildKdTree(pts) {
