@@ -10,3 +10,5 @@ matplotlib==3.9.4
 pygrib
 scipy
 cartopy
+boto3>=1.35.0
+psycopg2-binary>=2.9.10
