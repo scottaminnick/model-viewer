@@ -186,14 +186,9 @@ map.createPane("modelPane");
 map.getPane("modelPane").style.zIndex = 300;
 map.getPane("modelPane").style.pointerEvents = "none";
 
-const darkGray = L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 16 });
-darkGray.addTo(map);
-
 const esriTerrain = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.65 });
+  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.85 });
 esriTerrain.addTo(map);
 
 const statesLayer = L.geoJSON(null, { style: { color:"#000000", weight:2.5, fill:false, opacity:0.9 } });
@@ -235,7 +230,7 @@ function startLoop() {
   if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
   const delay = parseInt(document.getElementById("loop-speed").value || "1000");
   loopInterval = setInterval(() => {
-    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
     if (!btns.length) return;
     const i = btns.findIndex(b => b.classList.contains("active"));
     btns[(i + 1) % btns.length].click();
@@ -269,7 +264,7 @@ function renderHourStrip(avail) {
     btn.dataset.fxx = fxx;
     btn.addEventListener("click", () => {
       stopLoop();
-      document.querySelectorAll(".fxx-btn:not(.nav-btn)").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)").forEach(b => b.classList.remove("active"));
       btn.classList.add("active","loading");
       loadImage(fxx).then(() => btn.classList.remove("loading"));
     });
@@ -295,12 +290,12 @@ function renderHourStrip(avail) {
   bar.appendChild(speedSel);
 
   document.getElementById("hr-prev").onclick = () => {
-    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
     const i = btns.findIndex(b => b.classList.contains("active"));
     if (i > 0) btns[i-1].click();
   };
   document.getElementById("hr-next").onclick = () => {
-    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
     const i = btns.findIndex(b => b.classList.contains("active"));
     if (i < btns.length-1) btns[i+1].click();
   };
@@ -488,7 +483,7 @@ map.on("mouseout", () => {
 document.addEventListener("keydown", e => {
   if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
   e.preventDefault();
-  const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+  const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
   if (!btns.length) return;
   const i = btns.findIndex(b => b.classList.contains("active"));
   if (e.key === "ArrowRight" && i < btns.length-1) btns[i+1].click();
