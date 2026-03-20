@@ -9,27 +9,42 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3;
            height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── topbar ── */
     #topbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px;
               background: #161b22; border-bottom: 1px solid #30363d;
               flex-shrink: 0; flex-wrap: wrap; }
-    #topbar h1 { font-size: 14px; font-weight: 700; color: #58a6ff; white-space: nowrap; }
     .ctrl-group { display: flex; align-items: center; gap: 4px; }
     .ctrl-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .04em; }
     select { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
              border-radius: 4px; padding: 3px 6px; font-size: 13px; cursor: pointer; }
     select:hover { border-color: #58a6ff; }
+    #ready-badge { margin-left: auto; font-size: 11px; color: #3fb950; white-space: nowrap; }
+
+    /* ── hourbar ── */
     #hourbar { display: flex; align-items: center; gap: 2px; padding: 4px 12px;
                background: #0d1117; border-bottom: 1px solid #21262d;
                flex-shrink: 0; overflow-x: auto; }
-    #hourbar .hl { font-size: 11px; color: #8b949e; margin-right: 6px; white-space: nowrap; }
+    #hourbar .hl { font-size: 11px; color: #8b949e; margin-right: 4px; white-space: nowrap; }
     .fxx-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e;
-               border-radius: 3px; padding: 2px 7px; font-size: 12px;
+               border-radius: 3px; padding: 2px 6px; font-size: 12px;
                cursor: pointer; white-space: nowrap; }
     .fxx-btn:hover  { border-color: #58a6ff; color: #e6edf3; }
     .fxx-btn.active { background: #1f6feb; border-color: #58a6ff; color: #fff; }
     .fxx-btn.loading { border-color: #e3b341; color: #e3b341; }
+    .nav-btn { padding: 2px 8px; font-size: 11px; }
+    #loop-btn.looping { border-color: #3fb950; color: #3fb950; }
+    #loop-speed { background: #21262d; color: #8b949e; border: 1px solid #30363d;
+                  border-radius: 3px; padding: 2px 4px; font-size: 11px; cursor: pointer;
+                  margin-left: 2px; }
+    #loop-speed:hover { border-color: #58a6ff; }
+    .hr-spacer { flex: 1; }
+
+    /* ── main / map ── */
     #main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
     #map  { flex: 1; position: relative; }
+
+    /* ── loading spinner ── */
     #map-loading {
       display: none; position: absolute;
       top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -45,26 +60,64 @@
       border-radius: 50%; animation: spin 0.75s linear infinite;
       margin: 0 auto 10px;
     }
-    #sidebar { width: 230px; background: #161b22; border-left: 1px solid #30363d;
-               padding: 12px; overflow-y: auto; flex-shrink: 0; font-size: 13px; }
-    .sidebar-section { margin-bottom: 16px; }
-    .sidebar-title { font-size: 11px; color: #8b949e; text-transform: uppercase;
-                     letter-spacing: .06em; margin-bottom: 6px; }
-    .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 12px; }
-    .legend-swatch { width: 16px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-    .layer-toggle { display: flex; align-items: center; gap: 6px; margin: 4px 0; cursor: pointer; }
-    .layer-toggle input { cursor: pointer; }
-    #cursor-box { background: #21262d; border-radius: 6px; padding: 8px 10px; }
-    #cursor-val  { font-size: 22px; font-weight: 700; color: #58a6ff; }
-    #cursor-unit { font-size: 13px; color: #8b949e; }
-    #cursor-ll   { font-size: 11px; color: #8b949e; margin-top: 2px; }
-    #cursor-meta { font-size: 11px; color: #8b949e; margin-top: 6px; line-height: 1.6; }
-    #ready-badge { margin-left: auto; font-size: 11px; color: #3fb950; white-space: nowrap; }
+
+    /* ── shared overlay base ── */
+    .map-overlay {
+      position: absolute; z-index: 750; pointer-events: auto;
+      background: rgba(13,17,23,0.78); border: 1px solid #30363d;
+      border-radius: 7px;
+    }
+
+    /* ── model info (top-left, below zoom ctrl) ── */
+    #map-info {
+      top: 80px; left: 10px;
+      padding: 8px 12px; font-size: 12px; line-height: 1.75;
+      pointer-events: none;
+    }
+    #mi-model { font-weight: 700; color: #58a6ff; font-size: 13px; }
+    #mi-cycle, #mi-valid { color: #c9d1d9; font-size: 11px; }
+
+    /* ── layer toggles (top-right) ── */
+    #map-layer-ctrl {
+      top: 80px; right: 10px;
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 7px 8px;
+    }
+    .lyr-btn {
+      background: transparent; border: 1px solid #30363d; color: #8b949e;
+      border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
+      text-align: center;
+    }
+    .lyr-btn:hover { border-color: #58a6ff; color: #e6edf3; }
+    .lyr-btn.active { border-color: #58a6ff; color: #e6edf3; background: rgba(31,111,235,0.18); }
+
+    /* ── horizontal legend (bottom) ── */
+    #map-legend {
+      bottom: 24px; left: 10px; right: 135px;
+      padding: 6px 10px 5px;
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 3px 0; pointer-events: none;
+    }
+    .leg-swatch {
+      width: 20px; height: 13px; border-radius: 2px; flex-shrink: 0;
+    }
+    .leg-label {
+      font-size: 10px; color: #c9d1d9; white-space: nowrap;
+      margin: 0 8px 0 3px;
+    }
+
+    /* ── cursor tooltip ── */
+    #cursor-tip {
+      display: none; position: absolute; z-index: 780; pointer-events: none;
+      background: rgba(13,17,23,0.88); border: 1px solid #30363d;
+      border-radius: 6px; padding: 6px 10px;
+      font-size: 12px; color: #e6edf3; line-height: 1.6; white-space: nowrap;
+    }
+    #cursor-tip b { color: #58a6ff; }
   </style>
 </head>
 <body>
 <div id="topbar">
-  <h1 id="page-title">Model Viewer</h1>
   <div class="ctrl-group">
     <span class="ctrl-label">Model</span>
     <select id="sel-model"></select>
@@ -85,7 +138,9 @@
   <span id="ready-badge">— ready</span>
 </div>
 
-<div id="hourbar"><span class="hl">HOUR →</span></div>
+<div id="hourbar">
+  <span class="hl">HOUR →</span>
+</div>
 
 <div id="regionbar" style="display:none; align-items:center; gap:4px; padding:4px 12px;
      background:#0d1117; border-bottom:1px solid #21262d; flex-shrink:0;">
@@ -99,32 +154,21 @@
       <div class="spin-ring"></div>
       <div id="map-loading-msg">Rendering…</div>
     </div>
-  </div>
-  <div id="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-title">Layers</div>
-      <label class="layer-toggle"><input type="checkbox" id="chk-roads"> Roads</label>
-      <div class="layer-toggle" style="gap:4px">
-        <input type="checkbox" id="chk-terrain">
-        <span style="flex:1">Terrain</span>
-        <input id="terrain-opacity" type="range" min="0" max="100" value="45" style="width:55px; cursor:pointer"/>
-        <span id="terrain-opacity-val" style="font-size:11px;color:#8b949e;width:28px;text-align:right">45%</span>
-      </div>
-      <label class="layer-toggle"><input type="checkbox" id="chk-states" checked> States</label>
-      <label class="layer-toggle"><input type="checkbox" id="chk-artcc"  checked> ARTCCs</label>
+
+    <div id="map-info" class="map-overlay">
+      <div id="mi-model"></div>
+      <div id="mi-cycle"></div>
+      <div id="mi-valid"></div>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-title" id="legend-title">Legend</div>
-      <div id="legend-items"></div>
+
+    <div id="map-layer-ctrl" class="map-overlay">
+      <button class="lyr-btn active" id="lyr-states">States</button>
+      <button class="lyr-btn active" id="lyr-artcc">ARTCCs</button>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-title">Cursor Sample</div>
-      <div id="cursor-box">
-        <div><span id="cursor-val">—</span> <span id="cursor-unit"></span></div>
-        <div id="cursor-ll"></div>
-        <div id="cursor-meta"></div>
-      </div>
-    </div>
+
+    <div id="map-legend" class="map-overlay"></div>
+
+    <div id="cursor-tip"></div>
   </div>
 </div>
 
@@ -134,6 +178,7 @@ const IMAGE_BOUNDS = [[22.0, -126.0], [52.0, -64.0]];
 let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx = 1;
 let imageOverlay = null, barbOverlay = null, pointsData = null;
 let curUnits = "", curValidUtc = "";
+let loopActive = false, loopInterval = null;
 
 const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
 
@@ -144,16 +189,12 @@ map.getPane("modelPane").style.pointerEvents = "none";
 const darkGray = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
   { attribution: "Tiles © Esri", maxZoom: 16 });
+darkGray.addTo(map);
 
 const esriTerrain = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.45 });
-
-darkGray.addTo(map);
-
-const esriRoads = L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri", maxZoom: 16, opacity: 0.7 });
+  { attribution: "Tiles © Esri", maxZoom: 13, opacity: 0.65 });
+esriTerrain.addTo(map);
 
 const statesLayer = L.geoJSON(null, { style: { color:"#000000", weight:2.5, fill:false, opacity:0.9 } });
 fetch("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
@@ -164,22 +205,108 @@ const artccLayer = L.geoJSON(null, { style: { color:"#ff69b4", weight:2.5, fill:
 fetch("/api/artcc/boundaries").then(r => r.json()).then(gj => artccLayer.addData(gj));
 artccLayer.addTo(map);
 
-document.getElementById("chk-roads").addEventListener("change",   e => e.target.checked ? esriRoads.addTo(map)    : map.removeLayer(esriRoads));
-document.getElementById("chk-terrain").addEventListener("change", e => {
-  e.target.checked ? esriTerrain.addTo(map) : map.removeLayer(esriTerrain);
+document.getElementById("lyr-states").addEventListener("click", function() {
+  this.classList.toggle("active");
+  if (this.classList.contains("active")) {
+    statesLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront();
+  } else {
+    map.removeLayer(statesLayer);
+  }
 });
-document.getElementById("terrain-opacity").addEventListener("input", e => {
-  esriTerrain.setOpacity(e.target.value / 100);
-  document.getElementById("terrain-opacity-val").textContent = e.target.value + "%";
+
+document.getElementById("lyr-artcc").addEventListener("click", function() {
+  this.classList.toggle("active");
+  if (this.classList.contains("active")) {
+    artccLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront();
+  } else {
+    map.removeLayer(artccLayer);
+  }
 });
-document.getElementById("chk-states").addEventListener("change", e => e.target.checked ? statesLayer.addTo(map) : map.removeLayer(statesLayer));
-document.getElementById("chk-artcc").addEventListener("change",  e => e.target.checked ? artccLayer.addTo(map)  : map.removeLayer(artccLayer));
 
 document.getElementById("opacity-slider").addEventListener("input", e => {
   document.getElementById("opacity-val").textContent = e.target.value + "%";
   if (imageOverlay) imageOverlay.setOpacity(e.target.value / 100);
 });
 
+/* ── loop ── */
+function startLoop() {
+  loopActive = true;
+  const lb = document.getElementById("loop-btn");
+  if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
+  const delay = parseInt(document.getElementById("loop-speed").value || "1000");
+  loopInterval = setInterval(() => {
+    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    if (!btns.length) return;
+    const i = btns.findIndex(b => b.classList.contains("active"));
+    btns[(i + 1) % btns.length].click();
+  }, delay);
+}
+
+function stopLoop() {
+  loopActive = false;
+  clearInterval(loopInterval);
+  loopInterval = null;
+  const lb = document.getElementById("loop-btn");
+  if (lb) { lb.textContent = "▶ Loop"; lb.classList.remove("looping"); }
+}
+
+function toggleLoop() { loopActive ? stopLoop() : startLoop(); }
+
+/* ── hour strip ── */
+function renderHourStrip(avail) {
+  stopLoop();
+  const bar = document.getElementById("hourbar");
+  bar.innerHTML = `<span class="hl">HOUR →</span>`;
+
+  const prevBtn = document.createElement("button");
+  prevBtn.id = "hr-prev"; prevBtn.className = "fxx-btn nav-btn"; prevBtn.title = "Previous hour";
+  prevBtn.textContent = "◀"; bar.appendChild(prevBtn);
+
+  avail.forEach(fxx => {
+    const btn = document.createElement("button");
+    btn.className = "fxx-btn";
+    btn.textContent = `F${String(fxx).padStart(2,"0")}`;
+    btn.dataset.fxx = fxx;
+    btn.addEventListener("click", () => {
+      stopLoop();
+      document.querySelectorAll(".fxx-btn:not(.nav-btn)").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active","loading");
+      loadImage(fxx).then(() => btn.classList.remove("loading"));
+    });
+    if (fxx === curFxx) btn.classList.add("active");
+    bar.appendChild(btn);
+  });
+
+  const nextBtn = document.createElement("button");
+  nextBtn.id = "hr-next"; nextBtn.className = "fxx-btn nav-btn"; nextBtn.title = "Next hour";
+  nextBtn.textContent = "▶"; bar.appendChild(nextBtn);
+
+  const spacer = document.createElement("div");
+  spacer.className = "hr-spacer"; bar.appendChild(spacer);
+
+  const loopBtn = document.createElement("button");
+  loopBtn.id = "loop-btn"; loopBtn.className = "fxx-btn nav-btn"; loopBtn.title = "Loop forecast hours";
+  loopBtn.textContent = "▶ Loop"; loopBtn.onclick = toggleLoop; bar.appendChild(loopBtn);
+
+  const speedSel = document.createElement("select");
+  speedSel.id = "loop-speed"; speedSel.title = "Animation speed";
+  speedSel.innerHTML = `<option value="2000">0.5×</option><option value="1000" selected>1×</option><option value="500">2×</option>`;
+  speedSel.onchange = () => { if (loopActive) { stopLoop(); startLoop(); } };
+  bar.appendChild(speedSel);
+
+  document.getElementById("hr-prev").onclick = () => {
+    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    const i = btns.findIndex(b => b.classList.contains("active"));
+    if (i > 0) btns[i-1].click();
+  };
+  document.getElementById("hr-next").onclick = () => {
+    const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
+    const i = btns.findIndex(b => b.classList.contains("active"));
+    if (i < btns.length-1) btns[i+1].click();
+  };
+}
+
+/* ── boot / model / product ── */
 async function boot() {
   registry = await fetch("/api/products").then(r => r.json());
   const modelSel = document.getElementById("sel-model");
@@ -193,6 +320,7 @@ async function boot() {
 }
 
 async function onModelChange(modelId) {
+  stopLoop();
   curModel = modelId;
   const mDef = registry.find(m => m.model_id === modelId);
   const prodSel = document.getElementById("sel-product");
@@ -206,6 +334,7 @@ async function onModelChange(modelId) {
 }
 
 async function onProductChange(productId) {
+  stopLoop();
   curProduct = productId;
   document.getElementById("sel-product").value = productId;
   const mDef = registry.find(m => m.model_id === curModel);
@@ -213,7 +342,6 @@ async function onProductChange(productId) {
 
   const regionBar = document.getElementById("regionbar");
   regionBar.style.display = pDef.group === "froude" ? "flex" : "none";
-
   document.querySelectorAll("#regionbar button").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("#regionbar button").forEach(b => b.classList.remove("active"));
@@ -223,9 +351,8 @@ async function onProductChange(productId) {
   });
 
   curUnits = pDef.units;
-  document.getElementById("cursor-unit").textContent = pDef.units;
-  document.getElementById("legend-title").textContent = pDef.label;
-  document.getElementById("page-title").textContent = `${mDef.label} — ${pDef.label}`;
+  document.title = `${mDef.label} — ${pDef.label}`;
+  updateMapInfo();
   renderLegend(pDef.legend);
   await loadStatus();
 }
@@ -249,28 +376,10 @@ async function loadStatus() {
 
   const cycleData = match || status.cycles[0];
   const avail = cycleData.available_hours;
-  renderHourStrip(avail, cycleData.cached_hours || []);
+  renderHourStrip(avail);
   cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
   curFxx = avail.includes(1) ? 1 : avail[0];
   await loadImage(curFxx);
-}
-
-function renderHourStrip(avail, cached) {
-  const bar = document.getElementById("hourbar");
-  bar.innerHTML = `<span class="hl">HOUR →</span>`;
-  avail.forEach(fxx => {
-    const btn = document.createElement("button");
-    btn.className = "fxx-btn";
-    btn.textContent = `F${String(fxx).padStart(2,"0")}`;
-    btn.dataset.fxx = fxx;
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".fxx-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active","loading");
-      loadImage(fxx).then(() => btn.classList.remove("loading"));
-    });
-    if (fxx === curFxx) btn.classList.add("active");
-    bar.appendChild(btn);
-  });
 }
 
 async function loadImage(fxx) {
@@ -301,36 +410,42 @@ async function loadImage(fxx) {
     .then(r => r.json()).then(d => {
       buildKdTree(d.points);
       curValidUtc = (d.valid_utc || "").replace("+00:00","Z");
-      const cycleShort = (curCycle || "").replace("+00:00","Z");
-      document.getElementById("cursor-meta").innerHTML =
-        `Model: <b>${curModel.toUpperCase()}</b><br>` +
-        `Cycle: ${cycleShort}<br>` +
-        `Valid: ${curValidUtc} (F${String(fxx).padStart(2,"0")})<br>` +
-        `Points: ${d.point_count.toLocaleString()}`;
+      updateMapInfo();
     });
 }
 
+/* ── map info overlay ── */
+function updateMapInfo() {
+  const mDef = registry.find(m => m.model_id === curModel);
+  const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
+  const cycleShort = (curCycle || "").replace("+00:00","Z");
+  document.getElementById("mi-model").textContent =
+    mDef ? `${mDef.label}  —  ${pDef ? pDef.label : ""}` : "";
+  document.getElementById("mi-cycle").textContent =
+    cycleShort ? `Cycle: ${cycleShort}` : "";
+  document.getElementById("mi-valid").textContent =
+    curValidUtc ? `Valid: ${curValidUtc}  (F${String(curFxx).padStart(2,"0")})` : "";
+}
+
+/* ── badges / loading ── */
 function setBadge(t, c) {
   const el = document.getElementById("ready-badge");
   el.textContent = t; el.style.color = c;
 }
-
 function showLoading(msg) {
-  const el = document.getElementById("map-loading");
   document.getElementById("map-loading-msg").textContent = msg || "Rendering…";
-  el.style.display = "block";
+  document.getElementById("map-loading").style.display = "block";
 }
-
 function hideLoading() {
   document.getElementById("map-loading").style.display = "none";
 }
 
+/* ── kd-tree ── */
 function buildKdTree(pts) {
   const arr = new Float32Array(pts.length * 3);
   pts.forEach((p, i) => { arr[i*3]=p.lat; arr[i*3+1]=p.lon; arr[i*3+2]=p.value; });
   pointsData = arr;
 }
-
 function nearestValue(lat, lon) {
   if (!pointsData) return null;
   const n = pointsData.length / 3;
@@ -342,33 +457,57 @@ function nearestValue(lat, lon) {
   return val;
 }
 
+/* ── cursor tooltip ── */
 map.on("mousemove", e => {
   const v = nearestValue(e.latlng.lat, e.latlng.lng);
+  const tip = document.getElementById("cursor-tip");
   if (v !== null) {
-    document.getElementById("cursor-val").textContent = v.toFixed(1);
-    document.getElementById("cursor-ll").textContent =
-      `${e.latlng.lat.toFixed(2)}°N  ${Math.abs(e.latlng.lng).toFixed(2)}°W`;
+    const lat = Math.abs(e.latlng.lat).toFixed(2);
+    const lon = Math.abs(e.latlng.lng).toFixed(2);
+    const ns  = e.latlng.lat  >= 0 ? "N" : "S";
+    const ew  = e.latlng.lng  <= 0 ? "W" : "E";
+    tip.innerHTML = `<b>${v.toFixed(1)} ${curUnits}</b><br>${lat}°${ns}  ${lon}°${ew}`;
+    const mapEl = document.getElementById("map");
+    const mw = mapEl.offsetWidth, mh = mapEl.offsetHeight;
+    let tx = e.containerPoint.x + 14;
+    let ty = e.containerPoint.y - 14;
+    if (tx + 170 > mw) tx = e.containerPoint.x - 174;
+    if (ty + 54  > mh) ty = e.containerPoint.y - 58;
+    tip.style.left = tx + "px";
+    tip.style.top  = ty + "px";
+    tip.style.display = "block";
+  } else {
+    tip.style.display = "none";
   }
 });
+map.on("mouseout", () => {
+  document.getElementById("cursor-tip").style.display = "none";
+});
 
+/* ── keyboard nav ── */
 document.addEventListener("keydown", e => {
   if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
   e.preventDefault();
-  const btns = [...document.querySelectorAll(".fxx-btn")];
+  const btns = [...document.querySelectorAll(".fxx-btn:not(.nav-btn)")];
   if (!btns.length) return;
   const i = btns.findIndex(b => b.classList.contains("active"));
   if (e.key === "ArrowRight" && i < btns.length-1) btns[i+1].click();
   if (e.key === "ArrowLeft"  && i > 0)             btns[i-1].click();
 });
 
+/* ── legend ── */
 function renderLegend(legend) {
-  const el = document.getElementById("legend-items");
+  const el = document.getElementById("map-legend");
   el.innerHTML = "";
   (legend||[]).forEach(item => {
-    const d = document.createElement("div");
-    d.className = "legend-item";
-    d.innerHTML = `<div class="legend-swatch" style="background:${item.color}"></div><span>${item.label}</span>`;
-    el.appendChild(d);
+    const sw = document.createElement("div");
+    sw.className = "leg-swatch";
+    sw.style.background = item.color;
+    const lb = document.createElement("span");
+    lb.className = "leg-label";
+    lb.textContent = item.label;
+    el.appendChild(sw);
+    el.appendChild(lb);
   });
 }
 
