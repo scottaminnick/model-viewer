@@ -8,6 +8,8 @@ import threading
 import traceback
 import logging
 import py_compile
+import storage
+import db
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -43,6 +45,7 @@ def _preflight_compile():
             log.exception("Preflight compile failed for %s; app will continue without strict mode.", path)
 
 _preflight_compile()
+db.init_db()
 # Kick off ARTCC boundary download in background
 threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
 
@@ -87,30 +90,50 @@ def api_status(model_id, product_id):
 
 @app.get("/api/image/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_image(model_id, product_id, cycle_utc, fxx):
-    """
-    Render and return a transparent PNG for the given model/product/cycle/fxx.
-    The image exactly covers the CONUS bounding box so it can be placed
-    with Leaflet's L.imageOverlay.
-    """
+    # L1 — in-memory TTLCache (sub-ms, session only)
     cached = IMAGE_CACHE.get(model_id, product_id, cycle_utc, fxx, TTL)
     if cached:
         return Response(cached, mimetype="image/png",
                         headers={"Cache-Control": f"public, max-age={TTL}"})
 
+    # L2 — Postgres metadata index + Spaces PNG (persistent across restarts)
+    if storage.spaces_available() and db.is_rendered(model_id, product_id, cycle_utc, fxx):
+        png = storage.get_png(model_id, product_id, cycle_utc, fxx)
+        if png:
+            IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)  # warm L1
+            return Response(png, mimetype="image/png",
+                            headers={"Cache-Control": f"public, max-age={TTL}"})
+
+    # L3 — full GRIB download + render (authoritative, slow)
     prod = get_product(model_id, product_id)
     cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
     lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
 
     overlay = (prod.get_contour_overlay(cycle_dt, fxx)
                if hasattr(prod, "get_contour_overlay") else None)
-    log.info(f"Contour overlay result: {overlay is not None}")   # ← temp debug
+    log.info(f"Contour overlay result: {overlay is not None}")
 
     png = render_png(lat2d, lon2d, vals2d, prod.cmap, prod.norm,
                      prod.render_mode, contour_overlay=overlay)
+
+    # Store in L1 immediately
     IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)
+
+    # Store in L2 in a background thread — don't block the HTTP response
+    if storage.spaces_available():
+        key = storage.object_key(model_id, product_id, cycle_utc, fxx)
+        png_copy = bytes(png)   # capture for thread closure — don't share a reference
+        def _upload_to_l2():
+            if storage.put_png(model_id, product_id, cycle_utc, fxx, png_copy):
+                db.record_render(model_id, product_id, cycle_utc, fxx, key)
+        threading.Thread(target=_upload_to_l2, daemon=True).start()
 
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
+
+### `requirements.txt` — add two lines
+boto3>=1.35.0
+psycopg2-binary>=2.9.10
 
 # ── points endpoint (cursor sampling) ────────────────────────────────────────
 
