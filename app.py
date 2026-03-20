@@ -131,10 +131,6 @@ def api_image(model_id, product_id, cycle_utc, fxx):
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
 
-### `requirements.txt` — add two lines
-boto3>=1.35.0
-psycopg2-binary>=2.9.10
-
 # ── points endpoint (cursor sampling) ────────────────────────────────────────
 
 @app.get("/api/points/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
