@@ -164,6 +164,7 @@
     <div id="map-layer-ctrl" class="map-overlay">
       <button class="lyr-btn active" id="lyr-states">States</button>
       <button class="lyr-btn active" id="lyr-artcc">ARTCCs</button>
+      <button class="lyr-btn" id="lyr-ll" title="Show lat/lon in cursor tooltip">LL</button>
     </div>
 
     <div id="map-legend" class="map-overlay"></div>
@@ -179,8 +180,10 @@ let registry = [], curModel = null, curProduct = null, curCycle = null, curFxx =
 let imageOverlay = null, barbOverlay = null, pointsData = null;
 let curUnits = "", curValidUtc = "";
 let loopActive = false, loopInterval = null;
+let showLL = false;
 
-const map = L.map("map", { keyboard: false }).setView([39, -98], 4);
+const map = L.map("map", { keyboard: false });
+map.fitBounds(IMAGE_BOUNDS);
 
 map.createPane("modelPane");
 map.getPane("modelPane").style.zIndex = 300;
@@ -216,6 +219,11 @@ document.getElementById("lyr-artcc").addEventListener("click", function() {
   } else {
     map.removeLayer(artccLayer);
   }
+});
+
+document.getElementById("lyr-ll").addEventListener("click", function() {
+  showLL = !showLL;
+  this.classList.toggle("active", showLL);
 });
 
 document.getElementById("opacity-slider").addEventListener("input", e => {
@@ -457,11 +465,15 @@ map.on("mousemove", e => {
   const v = nearestValue(e.latlng.lat, e.latlng.lng);
   const tip = document.getElementById("cursor-tip");
   if (v !== null) {
-    const lat = Math.abs(e.latlng.lat).toFixed(2);
-    const lon = Math.abs(e.latlng.lng).toFixed(2);
-    const ns  = e.latlng.lat  >= 0 ? "N" : "S";
-    const ew  = e.latlng.lng  <= 0 ? "W" : "E";
-    tip.innerHTML = `<b>${v.toFixed(1)} ${curUnits}</b><br>${lat}°${ns}  ${lon}°${ew}`;
+    let html = `<b>${v.toFixed(1)} ${curUnits}</b>`;
+    if (showLL) {
+      const lat = Math.abs(e.latlng.lat).toFixed(2);
+      const lon = Math.abs(e.latlng.lng).toFixed(2);
+      const ns  = e.latlng.lat  >= 0 ? "N" : "S";
+      const ew  = e.latlng.lng  <= 0 ? "W" : "E";
+      html += `<br>${lat}°${ns}  ${lon}°${ew}`;
+    }
+    tip.innerHTML = html;
     const mapEl = document.getElementById("map");
     const mw = mapEl.offsetWidth, mh = mapEl.offsetHeight;
     let tx = e.containerPoint.x + 14;
