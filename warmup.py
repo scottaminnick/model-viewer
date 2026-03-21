@@ -114,7 +114,8 @@ def _warmup_loop():
                     _warm_one(prod, cycle_dt, fxx)
                     # Small sleep between renders to avoid starving
                     # user-facing requests for the GRIB lock
-                    time.sleep(2)
+                    pause = 10 if "sigma_omega" in product_id else 2
+                    time.sleep(pause)
 
         log.info("warmup: pass complete. sleeping 30 min before next check.")
         time.sleep(1800)
