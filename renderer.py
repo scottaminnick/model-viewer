@@ -201,7 +201,7 @@ def render_png(lat2d: np.ndarray, lon2d: np.ndarray, vals2d: np.ndarray,
     # Project latitudes to Mercator y
     merc2d = _lat_to_merc(lat2d)
 
-    fig = plt.figure(figsize=(18, 10), dpi=120)
+    fig = plt.figure(figsize=(18, 10), dpi=100)
     ax  = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(LON_MIN, LON_MAX)
     ax.set_ylim(_MERC_YMIN, _MERC_YMAX)
@@ -338,7 +338,7 @@ def render_barbs_png(lat2d: np.ndarray, lon2d: np.ndarray,
     # Project to Mercator y
     merc  = _lat_to_merc(lats)
 
-    fig = plt.figure(figsize=(18, 10), dpi=150)
+    fig = plt.figure(figsize=(18, 10), dpi=120)
     ax  = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(LON_MIN, LON_MAX)
     ax.set_ylim(_MERC_YMIN, _MERC_YMAX)
