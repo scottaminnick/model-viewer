@@ -839,21 +839,32 @@ _so_lo_cmap, _so_lo_norm, _so_lo_legend = _so_cmap_legend(_so_lo_bounds, 10)
 
 @dataclass
 class _SigmaOmegaLevel(ProductDef):
-    """σ(ω) at one pressure level — full-CONUS map overlay."""
     level_hpa: int = 500
 
     def get_values(self, cycle_dt, fxx):
+        import db, storage
+        from datetime import timezone
+
+        cycle_utc = cycle_dt.replace(tzinfo=timezone.utc).isoformat(
+            timespec="minutes").replace("+00:00", "Z")
+
+        # Only allow rendering if already cached — sigma_omega is too
+        # expensive to render on-demand within Railway's request timeout.
+        if not db.is_rendered(self.model_id, self.product_id, cycle_utc, fxx):
+            raise RuntimeError(
+                f"sigma_omega/{self.level_hpa}hPa F{fxx:02d} not yet cached — "
+                f"warmup in progress, please try again in a few minutes."
+            )
+
         from products.science.sigma_omega import _fetch_level, _compute_stdev_omega
         tag = (f"{self.model_id}_{cycle_dt.strftime('%Y%m%d%H')}"
                f"_{fxx:02d}_so{self.level_hpa}")
-        _log_sigma.info("sigma_omega overlay: %d hPa  F%02d", self.level_hpa, fxx)
         lat2d, lon2d, omega, _ = _fetch_level(
             self.herbie_model, self.herbie_product,
             cycle_dt, fxx, self.level_hpa, tag,
         )
         stdev = _compute_stdev_omega(omega)
         return lat2d, lon2d, stdev
-
 
 for _so_lvl in [200, 250, 300, 400]:
     register(_SigmaOmegaLevel(
