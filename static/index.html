@@ -391,7 +391,7 @@ async function loadImage(fxx) {
   showLoading("Rendering…");
 
   const opacity = document.getElementById("opacity-slider").value / 100;
-  const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+  const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
   if (imageOverlay) map.removeLayer(imageOverlay);
   imageOverlay = L.imageOverlay(url, IMAGE_BOUNDS, { opacity, interactive: false, pane: "modelPane" }).addTo(map);
 
