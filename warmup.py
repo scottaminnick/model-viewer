@@ -95,34 +95,32 @@ def _warmup_loop():
         log.info("Postgres not configured — warmup disabled.")
         return
 
-    while True:
-        log.info("warmup: starting pass over all products...")
+        while True:
+            log.info("warmup: starting pass over all products...")
 
-        for model_id, products in REGISTRY.items():
-            for product_id, prod in products.items():
+            for model_id, products in REGISTRY.items():
+                for product_id, prod in products.items():
 
-                # Find the latest available cycle for this product
-                try:
-                    cycle_dt = find_latest_cycle(
-                        prod.herbie_model, prod.herbie_product
-                    )
-                except Exception as e:
-                    log.warning("warmup: find_latest_cycle failed for %s/%s: %s",
-                                model_id, product_id, e)
-                    continue
+                    try:
+                        cycle_dt = find_latest_cycle(
+                            prod.herbie_model, prod.herbie_product
+                        )
+                    except Exception as e:
+                        log.warning("warmup: find_latest_cycle failed for %s/%s: %s",
+                                    model_id, product_id, e)
+                        continue
 
-				for fxx in range(1, fxx_max + 1):
-    				_warm_one(prod, cycle_dt, fxx)
-    				gc.collect()
-    				# icing and sigma_omega read many large arrays — give memory time to free
-    				if any(heavy in product_id for heavy in ["icing", "sigma_omega", "llti", "virga"]):
-        				time.sleep(15)
-    				else:
-        				time.sleep(2)
+                    fxx_max = min(prod.fxx_max, max(FXX_RANGE))
+                    for fxx in range(1, fxx_max + 1):
+                        _warm_one(prod, cycle_dt, fxx)
+                        gc.collect()
+                        if any(heavy in product_id for heavy in ["icing", "sigma_omega", "llti", "virga"]):
+                            time.sleep(15)
+                        else:
+                            time.sleep(2)
 
-        log.info("warmup: pass complete. sleeping 30 min before next check.")
-        time.sleep(1800)
-
+            log.info("warmup: pass complete. sleeping 30 min before next check.")
+            time.sleep(1800)
 
 def start_warmup_thread(delay_seconds: int = STARTUP_DELAY_SECONDS):
     """Call once at app startup."""
