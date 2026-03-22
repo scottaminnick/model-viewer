@@ -282,11 +282,44 @@ function startLoop() {
   const lb = document.getElementById("loop-btn");
   if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
   const delay = parseInt(document.getElementById("loop-speed")?.value || "1000");
-  loopInterval = setInterval(() => {
-    const idx = _availHours.indexOf(curFxx);
-    const next = _availHours[(idx + 1) % _availHours.length];
-    if (next !== undefined) loadImage(next);
-  }, delay);
+
+  const step = () => {
+    if (!loopActive) return;
+    const idx    = _availHours.indexOf(curFxx);
+    const next   = _availHours[(idx + 1) % _availHours.length];
+    if (next === undefined) { loopInterval = setTimeout(step, delay); return; }
+
+    // If next hour is already in browser cache, advance immediately after delay.
+    // If not yet ready, wait for it to become ready then advance.
+    if (_segStates[next] === "ready") {
+      loopInterval = setTimeout(() => {
+        if (!loopActive) return;
+        loadImage(next);
+        loopInterval = setTimeout(step, delay);
+      }, delay);
+    } else {
+      // Poll every 200ms until ready, then advance
+      const wait = setInterval(() => {
+        if (!loopActive) { clearInterval(wait); return; }
+        if (_segStates[next] === "ready") {
+          clearInterval(wait);
+          loadImage(next);
+          loopInterval = setTimeout(step, delay);
+        }
+      }, 200);
+    }
+  };
+
+  loopInterval = setTimeout(step, delay);
+}
+
+function stopLoop() {
+  loopActive = false;
+  clearTimeout(loopInterval);
+  clearInterval(loopInterval);
+  loopInterval = null;
+  const lb = document.getElementById("loop-btn");
+  if (lb) { lb.textContent = "▶ Loop"; lb.classList.remove("looping"); }
 }
 
 function stopLoop() {
@@ -417,22 +450,38 @@ function stepHour(dir) {
 }
 
 function preloadHourImages(avail) {
+  const mDef = registry.find(m => m.model_id === curModel);
+  const pDef = mDef?.products.find(p => p.product_id === curProduct);
+
   avail.forEach(fxx => {
-    if (fxx === curFxx) return;   // already loaded by loadImage()
+    if (fxx === curFxx) return;
     _segStates[fxx] = "loading";
     updateTrackActive(curFxx);
 
-    const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
+    const imgUrl = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
+    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
+
+    let imgDone  = false;
+    let barbDone = !pDef?.supports_barbs;   // skip barb wait if product has no barbs
+
+    const checkDone = () => {
+      if (imgDone && barbDone) {
+        _segStates[fxx] = "ready";
+        updateTrackActive(curFxx);
+      }
+    };
+
     const img = new Image();
-    img.onload = () => {
-      _segStates[fxx] = "ready";
-      updateTrackActive(curFxx);
-    };
-    img.onerror = () => {
-      _segStates[fxx] = "pending";
-      updateTrackActive(curFxx);
-    };
-    img.src = url;
+    img.onload  = () => { imgDone = true;  checkDone(); };
+    img.onerror = () => { imgDone = true;  checkDone(); };
+    img.src = imgUrl;
+
+    if (pDef?.supports_barbs) {
+      const barb = new Image();
+      barb.onload  = () => { barbDone = true; checkDone(); };
+      barb.onerror = () => { barbDone = true; checkDone(); };
+      barb.src = barbUrl;
+    }
   });
 }
   
