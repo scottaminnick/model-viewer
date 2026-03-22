@@ -22,42 +22,37 @@ STARTUP_DELAY_SECONDS = 60
 # Forecast hours to warm per product. Adjust if fxx_max varies.
 FXX_RANGE = range(1, 13)
 
-
 def _warm_one(prod, cycle_dt: datetime, fxx: int):
-    """
-    Render one (product, cycle, fxx) combo and write to Spaces + Postgres.
-    Skips if already recorded in Postgres.
-    """
     import storage
     import db
-    from renderer import render_png, render_barbs_png
+    from renderer import render_png
+    from grib_lock import GRIB_LOCK
+    from datetime import timezone
 
     cycle_utc = cycle_dt.replace(tzinfo=timezone.utc).isoformat(
-        timespec="minutes"
-    ).replace("+00:00", "Z")
+        timespec="minutes").replace("+00:00", "Z")
 
-    # Fast path — already cached in Postgres, nothing to do
     if db.is_rendered(prod.model_id, prod.product_id, cycle_utc, fxx):
-        log.debug("skip %s/%s F%02d — already cached", prod.model_id, prod.product_id, fxx)
+        log.debug("skip %s/%s F%02d — already cached",
+                  prod.model_id, prod.product_id, fxx)
         return
 
-    log.info("warming %s/%s %s F%02d", prod.model_id, prod.product_id, cycle_utc, fxx)
+    log.info("warming %s/%s %s F%02d",
+             prod.model_id, prod.product_id, cycle_utc, fxx)
 
     try:
-        lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
-
-        overlay = (
-            prod.get_contour_overlay(cycle_dt, fxx)
-            if hasattr(prod, "get_contour_overlay")
-            else None
-        )
-
-        png = render_png(
-            lat2d, lon2d, vals2d,
-            prod.cmap, prod.norm,
-            prod.render_mode,
-            contour_overlay=overlay,
-        )
+        if not GRIB_LOCK.acquire(timeout=60):
+            log.warning("warmup: GRIB_LOCK timeout for %s/%s F%02d — will retry next pass",
+                        prod.model_id, prod.product_id, fxx)
+            return
+        try:
+            lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
+            overlay = (prod.get_contour_overlay(cycle_dt, fxx)
+                       if hasattr(prod, "get_contour_overlay") else None)
+            png = render_png(lat2d, lon2d, vals2d, prod.cmap, prod.norm,
+                             prod.render_mode, contour_overlay=overlay)
+        finally:
+            GRIB_LOCK.release()
 
         key = storage.object_key(prod.model_id, prod.product_id, cycle_utc, fxx)
         if storage.put_png(prod.model_id, prod.product_id, cycle_utc, fxx, png):
@@ -70,20 +65,16 @@ def _warm_one(prod, cycle_dt: datetime, fxx: int):
     except Exception as e:
         msg = str(e).lower()
         if any(k in msg for k in ["not found", "404", "did not find"]):
-            log.debug("unavailable: %s/%s F%02d", prod.model_id, prod.product_id, fxx)
+            log.debug("unavailable: %s/%s F%02d",
+                      prod.model_id, prod.product_id, fxx)
         elif "no grib field found" in msg:
-            # Field permanently absent from this product/fxx combination.
-            # Record a sentinel in Postgres so warmup never retries it.
             log.debug("field absent (permanent): %s/%s F%02d",
                       prod.model_id, prod.product_id, fxx)
-            db.record_render(
-                prod.model_id, prod.product_id, cycle_utc, fxx,
-                png_key="UNAVAILABLE"
-            )
+            db.record_render(prod.model_id, prod.product_id,
+                             cycle_utc, fxx, png_key="UNAVAILABLE")
         else:
             log.warning("warmup error %s/%s F%02d: %s",
                         prod.model_id, prod.product_id, fxx, e)
-
 
 
 def _warmup_loop():
