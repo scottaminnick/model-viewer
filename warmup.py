@@ -71,9 +71,19 @@ def _warm_one(prod, cycle_dt: datetime, fxx: int):
         msg = str(e).lower()
         if any(k in msg for k in ["not found", "404", "did not find"]):
             log.debug("unavailable: %s/%s F%02d", prod.model_id, prod.product_id, fxx)
+        elif "no grib field found" in msg:
+            # Field permanently absent from this product/fxx combination.
+            # Record a sentinel in Postgres so warmup never retries it.
+            log.debug("field absent (permanent): %s/%s F%02d",
+                      prod.model_id, prod.product_id, fxx)
+            db.record_render(
+                prod.model_id, prod.product_id, cycle_utc, fxx,
+                png_key="UNAVAILABLE"
+            )
         else:
             log.warning("warmup error %s/%s F%02d: %s",
                         prod.model_id, prod.product_id, fxx, e)
+
 
 
 def _warmup_loop():
