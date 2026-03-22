@@ -91,6 +91,51 @@
     .lyr-btn:hover { border-color: #58a6ff; color: #e6edf3; }
     .lyr-btn.active { border-color: #58a6ff; color: #e6edf3; background: rgba(31,111,235,0.18); }
 
+    /* ── timeline scrubber ── */
+    #timeline-wrap {
+      padding: 6px 12px 8px;
+      background: #0d1117;
+      border-bottom: 1px solid #21262d;
+      flex-shrink: 0;
+    }
+    #timeline-track {
+      position: relative; height: 6px; border-radius: 3px;
+      background: #21262d; margin: 0 4px 6px;
+      display: flex; gap: 2px;
+    }
+    .tl-seg {
+      flex: 1; height: 100%; border-radius: 2px;
+      background: #30363d; transition: background 0.3s; cursor: pointer;
+    }
+    .tl-seg.loading  { background: #e3b341; }
+    .tl-seg.ready    { background: #1D9E75; }
+    .tl-seg.active   { background: #58a6ff; }
+    #timeline-slider {
+      position: absolute; top: -5px; left: 0; right: 0;
+      width: 100%; height: 16px;
+      -webkit-appearance: none; appearance: none;
+      background: transparent; cursor: pointer; margin: 0;
+    }
+    #timeline-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #58a6ff; border: 2px solid #0d1117;
+      box-shadow: 0 0 0 1px #58a6ff;
+    }
+    #timeline-slider::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #58a6ff; border: 2px solid #0d1117; cursor: pointer;
+    }
+    #timeline-labels {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: #8b949e; padding: 0 4px;
+      pointer-events: none;
+    }
+    #tl-fxx-display {
+      font-size: 12px; color: #e6edf3; font-weight: 500;
+      text-align: center; margin-bottom: 4px;
+    }
+    
     /* ── horizontal legend (bottom) ── */
     #map-legend {
       bottom: 24px; left: 10px; right: 135px;
@@ -236,12 +281,11 @@ function startLoop() {
   loopActive = true;
   const lb = document.getElementById("loop-btn");
   if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
-  const delay = parseInt(document.getElementById("loop-speed").value || "1000");
+  const delay = parseInt(document.getElementById("loop-speed")?.value || "1000");
   loopInterval = setInterval(() => {
-    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
-    if (!btns.length) return;
-    const i = btns.findIndex(b => b.classList.contains("active"));
-    btns[(i + 1) % btns.length].click();
+    const idx = _availHours.indexOf(curFxx);
+    const next = _availHours[(idx + 1) % _availHours.length];
+    if (next !== undefined) loadImage(next);
   }, delay);
 }
 
@@ -256,59 +300,142 @@ function stopLoop() {
 function toggleLoop() { loopActive ? stopLoop() : startLoop(); }
 
 /* ── hour strip ── */
+let _availHours = [];
+let _segStates  = {};   // fxx → "pending"|"loading"|"ready"
+
 function renderHourStrip(avail) {
   stopLoop();
+  _availHours = avail;
+  _segStates  = {};
+  avail.forEach(fxx => _segStates[fxx] = "pending");
+
   const bar = document.getElementById("hourbar");
-  bar.innerHTML = `<span class="hl">HOUR →</span>`;
+  bar.innerHTML = "";
 
   const prevBtn = document.createElement("button");
-  prevBtn.id = "hr-prev"; prevBtn.className = "fxx-btn nav-btn"; prevBtn.title = "Previous hour";
+  prevBtn.id = "hr-prev"; prevBtn.className = "fxx-btn nav-btn";
   prevBtn.textContent = "◀"; bar.appendChild(prevBtn);
 
-  avail.forEach(fxx => {
-    const btn = document.createElement("button");
-    btn.className = "fxx-btn";
-    btn.textContent = `F${String(fxx).padStart(2,"0")}`;
-    btn.dataset.fxx = fxx;
-    btn.addEventListener("click", () => {
-      stopLoop();
-      document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active","loading");
-      loadImage(fxx).then(() => btn.classList.remove("loading"));
-    });
-    if (fxx === curFxx) btn.classList.add("active");
-    bar.appendChild(btn);
-  });
-
   const nextBtn = document.createElement("button");
-  nextBtn.id = "hr-next"; nextBtn.className = "fxx-btn nav-btn"; nextBtn.title = "Next hour";
+  nextBtn.id = "hr-next"; nextBtn.className = "fxx-btn nav-btn";
   nextBtn.textContent = "▶"; bar.appendChild(nextBtn);
 
   const spacer = document.createElement("div");
   spacer.className = "hr-spacer"; bar.appendChild(spacer);
 
   const loopBtn = document.createElement("button");
-  loopBtn.id = "loop-btn"; loopBtn.className = "fxx-btn nav-btn"; loopBtn.title = "Loop forecast hours";
-  loopBtn.textContent = "▶ Loop"; loopBtn.onclick = toggleLoop; bar.appendChild(loopBtn);
+  loopBtn.id = "loop-btn"; loopBtn.className = "fxx-btn nav-btn";
+  loopBtn.textContent = "▶ Loop"; loopBtn.onclick = toggleLoop;
+  bar.appendChild(loopBtn);
 
   const speedSel = document.createElement("select");
   speedSel.id = "loop-speed"; speedSel.title = "Animation speed";
-  speedSel.innerHTML = `<option value="2000">0.5×</option><option value="1000" selected>1×</option><option value="500">2×</option>`;
+  speedSel.innerHTML = `<option value="2000">0.5×</option>
+                        <option value="1000" selected>1×</option>
+                        <option value="500">2×</option>`;
   speedSel.onchange = () => { if (loopActive) { stopLoop(); startLoop(); } };
   bar.appendChild(speedSel);
 
-  document.getElementById("hr-prev").onclick = () => {
-    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
-    const i = btns.findIndex(b => b.classList.contains("active"));
-    if (i > 0) btns[i-1].click();
-  };
-  document.getElementById("hr-next").onclick = () => {
-    const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
-    const i = btns.findIndex(b => b.classList.contains("active"));
-    if (i < btns.length-1) btns[i+1].click();
-  };
+  document.getElementById("hr-prev").onclick = () => stepHour(-1);
+  document.getElementById("hr-next").onclick = () => stepHour(+1);
+
+  // Build the timeline below hourbar
+  let wrap = document.getElementById("timeline-wrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "timeline-wrap";
+    document.getElementById("hourbar").after(wrap);
+  }
+
+  // Label row — show every 3rd hour to avoid crowding
+  const labelHtml = avail.map((fxx, i) => {
+    const show = (i % 3 === 0 || i === avail.length - 1)
+      ? `F${String(fxx).padStart(2,"0")}` : "";
+    return `<span>${show}</span>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <div id="tl-fxx-display">F${String(curFxx).padStart(2,"0")}</div>
+    <div id="timeline-track">
+      ${avail.map(fxx => `<div class="tl-seg" id="seg-${fxx}" data-fxx="${fxx}"></div>`).join("")}
+      <input id="timeline-slider" type="range"
+             min="0" max="${avail.length - 1}"
+             value="${Math.max(0, avail.indexOf(curFxx))}">
+    </div>
+    <div id="timeline-labels">${labelHtml}</div>
+  `;
+
+  document.getElementById("timeline-slider").addEventListener("input", e => {
+    const fxx = avail[parseInt(e.target.value)];
+    if (fxx !== undefined) {
+      stopLoop();
+      loadImage(fxx);
+    }
+  });
+
+  // Clicking a segment also jumps to that hour
+  avail.forEach(fxx => {
+    document.getElementById(`seg-${fxx}`)?.addEventListener("click", () => {
+      stopLoop();
+      loadImage(fxx);
+    });
+  });
+
+  updateTrackActive(curFxx);
 }
 
+function updateTrackActive(fxx) {
+  // Update slider thumb position
+  const idx = _availHours.indexOf(fxx);
+  const slider = document.getElementById("timeline-slider");
+  if (slider && idx >= 0) slider.value = idx;
+
+  // Update fxx display label
+  const disp = document.getElementById("tl-fxx-display");
+  if (disp) disp.textContent = `F${String(fxx).padStart(2,"0")}`;
+
+  // Update segment colors
+  _availHours.forEach(h => {
+    const seg = document.getElementById(`seg-${h}`);
+    if (!seg) return;
+    if (h === fxx) {
+      seg.className = "tl-seg active";
+    } else if (_segStates[h] === "ready") {
+      seg.className = "tl-seg ready";
+    } else if (_segStates[h] === "loading") {
+      seg.className = "tl-seg loading";
+    } else {
+      seg.className = "tl-seg";
+    }
+  });
+}
+
+function stepHour(dir) {
+  const idx = _availHours.indexOf(curFxx);
+  const next = _availHours[idx + dir];
+  if (next !== undefined) loadImage(next);
+}
+
+function preloadHourImages(avail) {
+  avail.forEach(fxx => {
+    if (fxx === curFxx) return;   // already loaded by loadImage()
+    _segStates[fxx] = "loading";
+    updateTrackActive(curFxx);
+
+    const url = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
+    const img = new Image();
+    img.onload = () => {
+      _segStates[fxx] = "ready";
+      updateTrackActive(curFxx);
+    };
+    img.onerror = () => {
+      _segStates[fxx] = "pending";
+      updateTrackActive(curFxx);
+    };
+    img.src = url;
+  });
+}
+  
 /* ── boot / model / product ── */
 async function boot() {
   registry = await fetch("/api/products").then(r => r.json());
@@ -385,8 +512,36 @@ async function loadStatus() {
   await loadImage(curFxx);
 }
 
+async function loadStatus() {
+  const status = await fetch(`/api/status/${curModel}/${curProduct}`).then(r => r.json());
+  const cycleSel = document.getElementById("sel-cycle");
+
+  const previousCycle = curCycle;
+  cycleSel.innerHTML = "";
+  status.cycles.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c.cycle_utc;
+    o.textContent = `${c.cycle_utc.replace("+00:00","Z")}  (${c.pct_complete}% ready)`;
+    cycleSel.appendChild(o);
+  });
+
+  const match = status.cycles.find(c => c.cycle_utc === previousCycle);
+  curCycle = match ? previousCycle : status.cycles[0].cycle_utc;
+  cycleSel.value = curCycle;
+
+  const cycleData = match || status.cycles[0];
+  const avail = cycleData.available_hours;
+  renderHourStrip(avail);
+  cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
+  curFxx = avail.includes(1) ? 1 : avail[0];
+  await loadImage(curFxx);
+  preloadHourImages(avail);   // ← add this line
+}
+  
 async function loadImage(fxx) {
   curFxx = fxx;
+  _segStates[fxx] = "ready";
+  updateTrackActive(fxx);
   setBadge("loading…", "#e3b341");
   showLoading("Rendering…");
 
