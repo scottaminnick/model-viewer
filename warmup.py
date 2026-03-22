@@ -110,13 +110,16 @@ def _warmup_loop():
                                 model_id, product_id, e)
                     continue
 
-                fxx_max = min(prod.fxx_max, max(FXX_RANGE))
-                for fxx in range(1, fxx_max + 1):
-                    _warm_one(prod, cycle_dt, fxx)
-                    # Small sleep between renders to avoid starving
-                    # user-facing requests for the GRIB lock
-                    pause = 10 if "sigma_omega" in product_id else 2
-                    time.sleep(pause)
+				import gc
+
+				for fxx in range(1, fxx_max + 1):
+    				_warm_one(prod, cycle_dt, fxx)
+    				gc.collect()
+    				# icing and sigma_omega read many large arrays — give memory time to free
+    				if any(heavy in product_id for heavy in ["icing", "sigma_omega", "llti", "virga"]):
+        				time.sleep(15)
+    				else:
+        				time.sleep(2)
 
         log.info("warmup: pass complete. sleeping 30 min before next check.")
         time.sleep(1800)
