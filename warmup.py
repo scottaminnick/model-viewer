@@ -8,6 +8,7 @@ Postgres. Subsequent restarts skip already-cached hours entirely.
 Skips gracefully if Spaces or Postgres are not configured.
 """
 
+import gc
 import threading
 import time
 import logging
@@ -109,8 +110,6 @@ def _warmup_loop():
                     log.warning("warmup: find_latest_cycle failed for %s/%s: %s",
                                 model_id, product_id, e)
                     continue
-
-				import gc
 
 				for fxx in range(1, fxx_max + 1):
     				_warm_one(prod, cycle_dt, fxx)
