@@ -22,152 +22,91 @@
     #ready-badge { margin-left: auto; font-size: 11px; color: #3fb950; white-space: nowrap; }
 
     /* ── hourbar ── */
-    #hourbar { display: flex; align-items: center; gap: 2px; padding: 4px 12px;
+    #hourbar { display: flex; align-items: center; gap: 4px; padding: 4px 12px;
                background: #0d1117; border-bottom: 1px solid #21262d;
-               flex-shrink: 0; overflow-x: auto; }
-    #hourbar .hl { font-size: 11px; color: #8b949e; margin-right: 4px; white-space: nowrap; }
+               flex-shrink: 0; }
     .fxx-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e;
-               border-radius: 3px; padding: 2px 6px; font-size: 12px;
+               border-radius: 3px; padding: 2px 7px; font-size: 12px;
                cursor: pointer; white-space: nowrap; }
     .fxx-btn:hover  { border-color: #58a6ff; color: #e6edf3; }
     .fxx-btn.active { background: #1f6feb; border-color: #58a6ff; color: #fff; }
-    .fxx-btn.loading { border-color: #e3b341; color: #e3b341; }
     .nav-btn { padding: 2px 8px; font-size: 11px; }
     #loop-btn.looping { border-color: #3fb950; color: #3fb950; }
     #loop-speed { background: #21262d; color: #8b949e; border: 1px solid #30363d;
-                  border-radius: 3px; padding: 2px 4px; font-size: 11px; cursor: pointer;
-                  margin-left: 2px; }
+                  border-radius: 3px; padding: 2px 4px; font-size: 11px; cursor: pointer; }
     #loop-speed:hover { border-color: #58a6ff; }
     .hr-spacer { flex: 1; }
+
+    /* ── regionbar ── */
+    #regionbar { display: none; align-items: center; gap: 4px; padding: 4px 12px;
+                 background: #0d1117; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+
+    /* ── timeline scrubber ── */
+    #timeline-wrap { padding: 6px 12px 4px; background: #0d1117;
+                     border-bottom: 1px solid #21262d; flex-shrink: 0; }
+    #tl-fxx-display { font-size: 12px; color: #e6edf3; font-weight: 500;
+                      text-align: center; margin-bottom: 4px; }
+    #timeline-track { position: relative; height: 6px; border-radius: 3px;
+                      background: #21262d; margin: 0 4px 4px; display: flex; gap: 2px; }
+    .tl-seg { flex: 1; height: 100%; border-radius: 2px;
+              background: #30363d; transition: background 0.3s; cursor: pointer; }
+    .tl-seg.loading { background: #e3b341; }
+    .tl-seg.ready   { background: #1D9E75; }
+    .tl-seg.active  { background: #58a6ff; }
+    #timeline-slider { position: absolute; top: -5px; left: 0; right: 0;
+                       width: 100%; height: 16px; margin: 0;
+                       -webkit-appearance: none; appearance: none;
+                       background: transparent; cursor: pointer; }
+    #timeline-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #58a6ff; border: 2px solid #0d1117; box-shadow: 0 0 0 1px #58a6ff; }
+    #timeline-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%;
+      background: #58a6ff; border: 2px solid #0d1117; cursor: pointer; }
+    #timeline-labels { display: flex; justify-content: space-between;
+                       font-size: 10px; color: #8b949e; padding: 0 4px; pointer-events: none; }
+
+    /* ── legend bar ── */
+    #map-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 0;
+                  padding: 5px 12px; background: #0d1117;
+                  border-bottom: 1px solid #21262d; flex-shrink: 0; }
+    .leg-swatch { width: 18px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+    .leg-label  { font-size: 10px; color: #8b949e; white-space: nowrap; margin: 0 8px 0 3px; }
 
     /* ── main / map ── */
     #main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
     #map  { flex: 1; position: relative; }
 
     /* ── loading spinner ── */
-    #map-loading {
-      display: none; position: absolute;
-      top: 50%; left: 50%; transform: translate(-50%, -50%);
-      z-index: 800; pointer-events: none;
-      background: rgba(13,17,23,0.82); border: 1px solid #30363d;
-      border-radius: 10px; padding: 18px 28px; text-align: center;
-      color: #e6edf3; font-size: 12px; min-width: 120px;
-    }
+    #map-loading { display: none; position: absolute; top: 50%; left: 50%;
+                   transform: translate(-50%,-50%); z-index: 800; pointer-events: none;
+                   background: rgba(13,17,23,0.82); border: 1px solid #30363d;
+                   border-radius: 10px; padding: 18px 28px; text-align: center;
+                   color: #e6edf3; font-size: 12px; min-width: 120px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .spin-ring {
-      width: 28px; height: 28px;
-      border: 3px solid #30363d; border-top-color: #58a6ff;
-      border-radius: 50%; animation: spin 0.75s linear infinite;
-      margin: 0 auto 10px;
-    }
+    .spin-ring { width: 28px; height: 28px; border: 3px solid #30363d;
+                 border-top-color: #58a6ff; border-radius: 50%;
+                 animation: spin 0.75s linear infinite; margin: 0 auto 10px; }
 
-    /* ── shared overlay base ── */
-    .map-overlay {
-      position: absolute; z-index: 750; pointer-events: auto;
-      background: rgba(13,17,23,0.78); border: 1px solid #30363d;
-      border-radius: 7px;
-    }
-
-    /* replaces the old #map-legend absolute positioning */
-    #map-legend {
-      display: flex; align-items: center; flex-wrap: wrap;
-      gap: 3px 0; padding: 5px 12px;
-      background: #0d1117; border-bottom: 1px solid #21262d;
-      flex-shrink: 0;
-    }
-    .leg-swatch {
-      width: 18px; height: 11px; border-radius: 2px; flex-shrink: 0;
-    }
-    .leg-label {
-      font-size: 10px; color: #8b949e; white-space: nowrap;
-      margin: 0 8px 0 3px;
-    }
-
-    /* ── layer toggles (top-right) ── */
-    #map-layer-ctrl {
-      top: 80px; right: 10px;
-      display: flex; flex-direction: column; gap: 4px;
-      padding: 7px 8px;
-    }
-    .lyr-btn {
-      background: transparent; border: 1px solid #30363d; color: #8b949e;
-      border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
-      text-align: center;
-    }
-    .lyr-btn:hover { border-color: #58a6ff; color: #e6edf3; }
+    /* ── layer toggles ── */
+    #map-layer-ctrl { position: absolute; z-index: 750; top: 10px; right: 10px;
+                      display: flex; flex-direction: column; gap: 4px; padding: 7px 8px;
+                      background: rgba(13,17,23,0.78); border: 1px solid #30363d;
+                      border-radius: 7px; pointer-events: auto; }
+    .lyr-btn { background: transparent; border: 1px solid #30363d; color: #8b949e;
+               border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
+    .lyr-btn:hover  { border-color: #58a6ff; color: #e6edf3; }
     .lyr-btn.active { border-color: #58a6ff; color: #e6edf3; background: rgba(31,111,235,0.18); }
 
-    /* ── timeline scrubber ── */
-    #timeline-wrap {
-      padding: 6px 12px 8px;
-      background: #0d1117;
-      border-bottom: 1px solid #21262d;
-      flex-shrink: 0;
-    }
-    #timeline-track {
-      position: relative; height: 6px; border-radius: 3px;
-      background: #21262d; margin: 0 4px 6px;
-      display: flex; gap: 2px;
-    }
-    .tl-seg {
-      flex: 1; height: 100%; border-radius: 2px;
-      background: #30363d; transition: background 0.3s; cursor: pointer;
-    }
-    .tl-seg.loading  { background: #e3b341; }
-    .tl-seg.ready    { background: #1D9E75; }
-    .tl-seg.active   { background: #58a6ff; }
-    #timeline-slider {
-      position: absolute; top: -5px; left: 0; right: 0;
-      width: 100%; height: 16px;
-      -webkit-appearance: none; appearance: none;
-      background: transparent; cursor: pointer; margin: 0;
-    }
-    #timeline-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: #58a6ff; border: 2px solid #0d1117;
-      box-shadow: 0 0 0 1px #58a6ff;
-    }
-    #timeline-slider::-moz-range-thumb {
-      width: 14px; height: 14px; border-radius: 50%;
-      background: #58a6ff; border: 2px solid #0d1117; cursor: pointer;
-    }
-    #timeline-labels {
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: #8b949e; padding: 0 4px;
-      pointer-events: none;
-    }
-    #tl-fxx-display {
-      font-size: 12px; color: #e6edf3; font-weight: 500;
-      text-align: center; margin-bottom: 4px;
-    }
-    
-    /* replaces the old #map-legend absolute positioning */
-    #map-legend {
-      display: flex; align-items: center; flex-wrap: wrap;
-      gap: 3px 0; padding: 5px 12px;
-      background: #0d1117; border-bottom: 1px solid #21262d;
-      flex-shrink: 0;
-    }
-    .leg-swatch {
-      width: 18px; height: 11px; border-radius: 2px; flex-shrink: 0;
-    }
-    .leg-label {
-      font-size: 10px; color: #8b949e; white-space: nowrap;
-      margin: 0 8px 0 3px;
-    }
-
     /* ── cursor tooltip ── */
-    #cursor-tip {
-      display: none; position: absolute; z-index: 780; pointer-events: none;
-      background: rgba(13,17,23,0.88); border: 1px solid #30363d;
-      border-radius: 6px; padding: 6px 10px;
-      font-size: 12px; color: #e6edf3; line-height: 1.6; white-space: nowrap;
-    }
+    #cursor-tip { display: none; position: absolute; z-index: 780; pointer-events: none;
+                  background: rgba(13,17,23,0.88); border: 1px solid #30363d;
+                  border-radius: 6px; padding: 6px 10px;
+                  font-size: 12px; color: #e6edf3; line-height: 1.6; white-space: nowrap; }
     #cursor-tip b { color: #58a6ff; }
   </style>
 </head>
 <body>
+
 <div id="topbar">
   <div class="ctrl-group">
     <span class="ctrl-label">Model</span>
@@ -189,12 +128,9 @@
   <span id="ready-badge">— ready</span>
 </div>
 
-<div id="hourbar">
-  <span class="hl">HOUR →</span>
-</div>
+<div id="hourbar"><span class="hl">HOUR →</span></div>
 
-<div id="regionbar" style="display:none; align-items:center; gap:4px; padding:4px 12px;
-     background:#0d1117; border-bottom:1px solid #21262d; flex-shrink:0;">
+<div id="regionbar">
   <span style="font-size:11px; color:#8b949e; margin-right:6px;">REGION →</span>
   <button class="fxx-btn active" data-region="froude_front_range">Front Range</button>
 </div>
@@ -209,10 +145,10 @@
       <div class="spin-ring"></div>
       <div id="map-loading-msg">Rendering…</div>
     </div>
-    <div id="map-layer-ctrl" class="map-overlay">
+    <div id="map-layer-ctrl">
       <button class="lyr-btn active" id="lyr-states">States</button>
       <button class="lyr-btn active" id="lyr-artcc">ARTCCs</button>
-      <button class="lyr-btn" id="lyr-ll" title="Show lat/lon in cursor tooltip">Latitude/Longitude</button>
+      <button class="lyr-btn" id="lyr-ll" title="Show lat/lon in cursor tooltip">LL</button>
     </div>
     <div id="cursor-tip"></div>
   </div>
@@ -226,7 +162,10 @@ let imageOverlay = null, barbOverlay = null, pointsData = null;
 let curUnits = "", curValidUtc = "";
 let loopActive = false, loopInterval = null;
 let showLL = false;
+let _availHours = [];
+let _segStates  = {};
 
+/* ── map setup ── */
 const map = L.map("map", { keyboard: false });
 map.fitBounds(IMAGE_BOUNDS);
 
@@ -248,24 +187,17 @@ const artccLayer = L.geoJSON(null, { style: { color:"#ff69b4", weight:2.5, fill:
 fetch("/api/artcc/boundaries").then(r => r.json()).then(gj => artccLayer.addData(gj));
 artccLayer.addTo(map);
 
+/* ── layer toggles ── */
 document.getElementById("lyr-states").addEventListener("click", function() {
   this.classList.toggle("active");
-  if (this.classList.contains("active")) {
-    statesLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront();
-  } else {
-    map.removeLayer(statesLayer);
-  }
+  if (this.classList.contains("active")) { statesLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront(); }
+  else map.removeLayer(statesLayer);
 });
-
 document.getElementById("lyr-artcc").addEventListener("click", function() {
   this.classList.toggle("active");
-  if (this.classList.contains("active")) {
-    artccLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront();
-  } else {
-    map.removeLayer(artccLayer);
-  }
+  if (this.classList.contains("active")) { artccLayer.addTo(map); statesLayer.bringToFront(); artccLayer.bringToFront(); }
+  else map.removeLayer(artccLayer);
 });
-
 document.getElementById("lyr-ll").addEventListener("click", function() {
   showLL = !showLL;
   this.classList.toggle("active", showLL);
@@ -276,65 +208,30 @@ document.getElementById("opacity-slider").addEventListener("input", e => {
   if (imageOverlay) imageOverlay.setOpacity(e.target.value / 100);
 });
 
-/* ── loop ── */
-function startLoop() {
-  loopActive = true;
-  const lb = document.getElementById("loop-btn");
-  if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
-  const delay = parseInt(document.getElementById("loop-speed")?.value || "1000");
-
-  const step = () => {
-    if (!loopActive) return;
-    const idx    = _availHours.indexOf(curFxx);
-    const next   = _availHours[(idx + 1) % _availHours.length];
-    if (next === undefined) { loopInterval = setTimeout(step, delay); return; }
-
-    // If next hour is already in browser cache, advance immediately after delay.
-    // If not yet ready, wait for it to become ready then advance.
-    if (_segStates[next] === "ready") {
-      loopInterval = setTimeout(() => {
-        if (!loopActive) return;
-        loadImage(next);
-        loopInterval = setTimeout(step, delay);
-      }, delay);
-    } else {
-      // Poll every 200ms until ready, then advance
-      const wait = setInterval(() => {
-        if (!loopActive) { clearInterval(wait); return; }
-        if (_segStates[next] === "ready") {
-          clearInterval(wait);
-          loadImage(next);
-          loopInterval = setTimeout(step, delay);
-        }
-      }, 200);
-    }
-  };
-
-  loopInterval = setTimeout(step, delay);
+/* ── Zulu time helper ── */
+function fxxToZulu(fxx) {
+  if (!curCycle) return `F${String(fxx).padStart(2,"0")}`;
+  const cycleDate = new Date(curCycle);
+  const validDate = new Date(cycleDate.getTime() + fxx * 3600 * 1000);
+  return `${validDate.getUTCHours()}Z`;
 }
 
-function stopLoop() {
-  loopActive = false;
-  clearTimeout(loopInterval);
-  clearInterval(loopInterval);
-  loopInterval = null;
-  const lb = document.getElementById("loop-btn");
-  if (lb) { lb.textContent = "▶ Loop"; lb.classList.remove("looping"); }
+/* ── timeline ── */
+function updateTrackActive(fxx) {
+  const idx = _availHours.indexOf(fxx);
+  const slider = document.getElementById("timeline-slider");
+  if (slider && idx >= 0) slider.value = idx;
+  const disp = document.getElementById("tl-fxx-display");
+  if (disp) disp.textContent = fxxToZulu(fxx);
+  _availHours.forEach(h => {
+    const seg = document.getElementById(`seg-${h}`);
+    if (!seg) return;
+    if (h === fxx)                      seg.className = "tl-seg active";
+    else if (_segStates[h] === "ready") seg.className = "tl-seg ready";
+    else if (_segStates[h] === "loading") seg.className = "tl-seg loading";
+    else                                seg.className = "tl-seg";
+  });
 }
-
-function stopLoop() {
-  loopActive = false;
-  clearInterval(loopInterval);
-  loopInterval = null;
-  const lb = document.getElementById("loop-btn");
-  if (lb) { lb.textContent = "▶ Loop"; lb.classList.remove("looping"); }
-}
-
-function toggleLoop() { loopActive ? stopLoop() : startLoop(); }
-
-/* ── hour strip ── */
-let _availHours = [];
-let _segStates  = {};   // fxx → "pending"|"loading"|"ready"
 
 function renderHourStrip(avail) {
   stopLoop();
@@ -372,19 +269,15 @@ function renderHourStrip(avail) {
   document.getElementById("hr-prev").onclick = () => stepHour(-1);
   document.getElementById("hr-next").onclick = () => stepHour(+1);
 
-  // Build the timeline below hourbar
+  /* timeline track */
   const wrap = document.getElementById("timeline-wrap");
-
-  // Label row — show every 3rd hour to avoid crowding
-  // NEW
   const labelHtml = avail.map((fxx, i) => {
-    const show = (i % 3 === 0 || i === avail.length - 1)
-      ? fxxToZulu(fxx) : "";
+    const show = (i % 3 === 0 || i === avail.length - 1) ? fxxToZulu(fxx) : "";
     return `<span>${show}</span>`;
   }).join("");
 
   wrap.innerHTML = `
-    <div id="tl-fxx-display">F${String(curFxx).padStart(2,"0")}</div>
+    <div id="tl-fxx-display">${fxxToZulu(curFxx)}</div>
     <div id="timeline-track">
       ${avail.map(fxx => `<div class="tl-seg" id="seg-${fxx}" data-fxx="${fxx}"></div>`).join("")}
       <input id="timeline-slider" type="range"
@@ -396,55 +289,25 @@ function renderHourStrip(avail) {
 
   document.getElementById("timeline-slider").addEventListener("input", e => {
     const fxx = avail[parseInt(e.target.value)];
-    if (fxx !== undefined) {
-      stopLoop();
-      loadImage(fxx);
-    }
+    if (fxx !== undefined) { stopLoop(); loadImage(fxx); }
   });
 
-  // Clicking a segment also jumps to that hour
   avail.forEach(fxx => {
     document.getElementById(`seg-${fxx}`)?.addEventListener("click", () => {
-      stopLoop();
-      loadImage(fxx);
+      stopLoop(); loadImage(fxx);
     });
   });
 
   updateTrackActive(curFxx);
 }
 
-function updateTrackActive(fxx) {
-  // Update slider thumb position
-  const idx = _availHours.indexOf(fxx);
-  const slider = document.getElementById("timeline-slider");
-  if (slider && idx >= 0) slider.value = idx;
-
-  // Update fxx display label
-  const disp = document.getElementById("tl-fxx-display");
-  if (disp) disp.textContent = fxxToZulu(fxx);
-
-  // Update segment colors
-  _availHours.forEach(h => {
-    const seg = document.getElementById(`seg-${h}`);
-    if (!seg) return;
-    if (h === fxx) {
-      seg.className = "tl-seg active";
-    } else if (_segStates[h] === "ready") {
-      seg.className = "tl-seg ready";
-    } else if (_segStates[h] === "loading") {
-      seg.className = "tl-seg loading";
-    } else {
-      seg.className = "tl-seg";
-    }
-  });
-}
-
 function stepHour(dir) {
   const idx = _availHours.indexOf(curFxx);
   const next = _availHours[idx + dir];
-  if (next !== undefined) loadImage(next);
+  if (next !== undefined) { stopLoop(); loadImage(next); }
 }
 
+/* ── preload ── */
 function preloadHourImages(avail) {
   const mDef = registry.find(m => m.model_id === curModel);
   const pDef = mDef?.products.find(p => p.product_id === curProduct);
@@ -454,22 +317,19 @@ function preloadHourImages(avail) {
     _segStates[fxx] = "loading";
     updateTrackActive(curFxx);
 
-    const imgUrl = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
+    const imgUrl  = `/api/image/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
     const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
 
     let imgDone  = false;
-    let barbDone = !pDef?.supports_barbs;   // skip barb wait if product has no barbs
+    let barbDone = !pDef?.supports_barbs;
 
     const checkDone = () => {
-      if (imgDone && barbDone) {
-        _segStates[fxx] = "ready";
-        updateTrackActive(curFxx);
-      }
+      if (imgDone && barbDone) { _segStates[fxx] = "ready"; updateTrackActive(curFxx); }
     };
 
     const img = new Image();
-    img.onload  = () => { imgDone = true;  checkDone(); };
-    img.onerror = () => { imgDone = true;  checkDone(); };
+    img.onload  = () => { imgDone = true; checkDone(); };
+    img.onerror = () => { imgDone = true; checkDone(); };
     img.src = imgUrl;
 
     if (pDef?.supports_barbs) {
@@ -481,14 +341,52 @@ function preloadHourImages(avail) {
   });
 }
 
-function fxxToZulu(fxx) {
-  if (!curCycle) return `F${String(fxx).padStart(2,"0")}`;
-  const cycleDate = new Date(curCycle);
-  const validDate = new Date(cycleDate.getTime() + fxx * 3600 * 1000);
-  return `${validDate.getUTCHours()}Z`;
+/* ── loop ── */
+function startLoop() {
+  loopActive = true;
+  const lb = document.getElementById("loop-btn");
+  if (lb) { lb.textContent = "⏸ Loop"; lb.classList.add("looping"); }
+  const delay = parseInt(document.getElementById("loop-speed")?.value || "1000");
+
+  const step = () => {
+    if (!loopActive) return;
+    const idx  = _availHours.indexOf(curFxx);
+    const next = _availHours[(idx + 1) % _availHours.length];
+    if (next === undefined) { loopInterval = setTimeout(step, delay); return; }
+
+    if (_segStates[next] === "ready") {
+      loopInterval = setTimeout(() => {
+        if (!loopActive) return;
+        loadImage(next);
+        loopInterval = setTimeout(step, delay);
+      }, delay);
+    } else {
+      const wait = setInterval(() => {
+        if (!loopActive) { clearInterval(wait); return; }
+        if (_segStates[next] === "ready") {
+          clearInterval(wait);
+          loadImage(next);
+          loopInterval = setTimeout(step, delay);
+        }
+      }, 200);
+    }
+  };
+
+  loopInterval = setTimeout(step, delay);
 }
-  
-/* ── boot / model / product ── */
+
+function stopLoop() {
+  loopActive = false;
+  clearTimeout(loopInterval);
+  clearInterval(loopInterval);
+  loopInterval = null;
+  const lb = document.getElementById("loop-btn");
+  if (lb) { lb.textContent = "▶ Loop"; lb.classList.remove("looping"); }
+}
+
+function toggleLoop() { loopActive ? stopLoop() : startLoop(); }
+
+/* ── boot / model / product / status ── */
 async function boot() {
   registry = await fetch("/api/products").then(r => r.json());
   const modelSel = document.getElementById("sel-model");
@@ -534,7 +432,6 @@ async function onProductChange(productId) {
 
   curUnits = pDef.units;
   document.title = `${mDef.label} — ${pDef.label}`;
-  updateMapInfo();
   renderLegend(pDef.legend);
   await loadStatus();
 }
@@ -562,34 +459,10 @@ async function loadStatus() {
   cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
   curFxx = avail.includes(1) ? 1 : avail[0];
   await loadImage(curFxx);
+  preloadHourImages(avail);
 }
 
-async function loadStatus() {
-  const status = await fetch(`/api/status/${curModel}/${curProduct}`).then(r => r.json());
-  const cycleSel = document.getElementById("sel-cycle");
-
-  const previousCycle = curCycle;
-  cycleSel.innerHTML = "";
-  status.cycles.forEach(c => {
-    const o = document.createElement("option");
-    o.value = c.cycle_utc;
-    o.textContent = `${c.cycle_utc.replace("+00:00","Z")}  (${c.pct_complete}% ready)`;
-    cycleSel.appendChild(o);
-  });
-
-  const match = status.cycles.find(c => c.cycle_utc === previousCycle);
-  curCycle = match ? previousCycle : status.cycles[0].cycle_utc;
-  cycleSel.value = curCycle;
-
-  const cycleData = match || status.cycles[0];
-  const avail = cycleData.available_hours;
-  renderHourStrip(avail);
-  cycleSel.onchange = () => { curCycle = cycleSel.value; loadStatus(); };
-  curFxx = avail.includes(1) ? 1 : avail[0];
-  await loadImage(curFxx);
-  preloadHourImages(avail);   // ← add this line
-}
-  
+/* ── image load ── */
 async function loadImage(fxx) {
   curFxx = fxx;
   _segStates[fxx] = "ready";
@@ -609,7 +482,7 @@ async function loadImage(fxx) {
   const mDef = registry.find(m => m.model_id === curModel);
   const pDef = mDef.products.find(p => p.product_id === curProduct);
   if (pDef.supports_barbs) {
-    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}?t=${Date.now()}`;
+    const barbUrl = `/api/barbs/${curModel}/${curProduct}/${encodeURIComponent(curCycle)}/${fxx}`;
     barbOverlay = L.imageOverlay(barbUrl, IMAGE_BOUNDS, { opacity: 1.0, interactive: false, pane: "modelPane" }).addTo(map);
   }
 
@@ -620,21 +493,7 @@ async function loadImage(fxx) {
     .then(r => r.json()).then(d => {
       buildKdTree(d.points);
       curValidUtc = (d.valid_utc || "").replace("+00:00","Z");
-      updateMapInfo();
     });
-}
-
-/* ── map info overlay ── */
-function updateMapInfo() {
-  const mDef = registry.find(m => m.model_id === curModel);
-  const pDef = mDef ? mDef.products.find(p => p.product_id === curProduct) : null;
-  const cycleShort = (curCycle || "").replace("+00:00","Z");
-  document.getElementById("mi-model").textContent =
-    mDef ? `${mDef.label}  —  ${pDef ? pDef.label : ""}` : "";
-  document.getElementById("mi-cycle").textContent =
-    cycleShort ? `Cycle: ${cycleShort}` : "";
-  document.getElementById("mi-valid").textContent =
-    curValidUtc ? `Valid: ${curValidUtc}  (F${String(curFxx).padStart(2,"0")})` : "";
 }
 
 /* ── badges / loading ── */
@@ -683,30 +542,23 @@ map.on("mousemove", e => {
     tip.innerHTML = html;
     const mapEl = document.getElementById("map");
     const mw = mapEl.offsetWidth, mh = mapEl.offsetHeight;
-    let tx = e.containerPoint.x + 14;
-    let ty = e.containerPoint.y - 14;
+    let tx = e.containerPoint.x + 14, ty = e.containerPoint.y - 14;
     if (tx + 170 > mw) tx = e.containerPoint.x - 174;
     if (ty + 54  > mh) ty = e.containerPoint.y - 58;
-    tip.style.left = tx + "px";
-    tip.style.top  = ty + "px";
+    tip.style.left = tx + "px"; tip.style.top = ty + "px";
     tip.style.display = "block";
   } else {
     tip.style.display = "none";
   }
 });
-map.on("mouseout", () => {
-  document.getElementById("cursor-tip").style.display = "none";
-});
+map.on("mouseout", () => { document.getElementById("cursor-tip").style.display = "none"; });
 
 /* ── keyboard nav ── */
 document.addEventListener("keydown", e => {
   if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
   e.preventDefault();
-  const btns = [...document.querySelectorAll("#hourbar .fxx-btn:not(.nav-btn)")];
-  if (!btns.length) return;
-  const i = btns.findIndex(b => b.classList.contains("active"));
-  if (e.key === "ArrowRight" && i < btns.length-1) btns[i+1].click();
-  if (e.key === "ArrowLeft"  && i > 0)             btns[i-1].click();
+  if (e.key === "ArrowRight") stepHour(+1);
+  if (e.key === "ArrowLeft")  stepHour(-1);
 });
 
 /* ── legend ── */
@@ -715,13 +567,10 @@ function renderLegend(legend) {
   el.innerHTML = "";
   (legend||[]).forEach(item => {
     const sw = document.createElement("div");
-    sw.className = "leg-swatch";
-    sw.style.background = item.color;
+    sw.className = "leg-swatch"; sw.style.background = item.color;
     const lb = document.createElement("span");
-    lb.className = "leg-label";
-    lb.textContent = item.label;
-    el.appendChild(sw);
-    el.appendChild(lb);
+    lb.className = "leg-label"; lb.textContent = item.label;
+    el.appendChild(sw); el.appendChild(lb);
   });
 }
 
