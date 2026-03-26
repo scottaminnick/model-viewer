@@ -68,14 +68,20 @@
       border-radius: 7px;
     }
 
-    /* ── model info (top-left, below zoom ctrl) ── */
-    #map-info {
-      top: 80px; left: 10px;
-      padding: 8px 12px; font-size: 12px; line-height: 1.75;
-      pointer-events: none;
+    /* replaces the old #map-legend absolute positioning */
+    #map-legend {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 3px 0; padding: 5px 12px;
+      background: #0d1117; border-bottom: 1px solid #21262d;
+      flex-shrink: 0;
     }
-    #mi-model { font-weight: 700; color: #58a6ff; font-size: 13px; }
-    #mi-cycle, #mi-valid { color: #c9d1d9; font-size: 11px; }
+    .leg-swatch {
+      width: 18px; height: 11px; border-radius: 2px; flex-shrink: 0;
+    }
+    .leg-label {
+      font-size: 10px; color: #8b949e; white-space: nowrap;
+      margin: 0 8px 0 3px;
+    }
 
     /* ── layer toggles (top-right) ── */
     #map-layer-ctrl {
@@ -136,18 +142,18 @@
       text-align: center; margin-bottom: 4px;
     }
     
-    /* ── horizontal legend (bottom) ── */
+    /* replaces the old #map-legend absolute positioning */
     #map-legend {
-      bottom: 24px; left: 10px; right: 135px;
-      padding: 6px 10px 5px;
       display: flex; align-items: center; flex-wrap: wrap;
-      gap: 3px 0; pointer-events: none;
+      gap: 3px 0; padding: 5px 12px;
+      background: #0d1117; border-bottom: 1px solid #21262d;
+      flex-shrink: 0;
     }
     .leg-swatch {
-      width: 20px; height: 13px; border-radius: 2px; flex-shrink: 0;
+      width: 18px; height: 11px; border-radius: 2px; flex-shrink: 0;
     }
     .leg-label {
-      font-size: 10px; color: #c9d1d9; white-space: nowrap;
+      font-size: 10px; color: #8b949e; white-space: nowrap;
       margin: 0 8px 0 3px;
     }
 
@@ -193,27 +199,21 @@
   <button class="fxx-btn active" data-region="froude_front_range">Front Range</button>
 </div>
 
+<div id="timeline-wrap"></div>
+
+<div id="map-legend"></div>
+
 <div id="main">
   <div id="map">
     <div id="map-loading">
       <div class="spin-ring"></div>
       <div id="map-loading-msg">Rendering…</div>
     </div>
-
-    <div id="map-info" class="map-overlay">
-      <div id="mi-model"></div>
-      <div id="mi-cycle"></div>
-      <div id="mi-valid"></div>
-    </div>
-
     <div id="map-layer-ctrl" class="map-overlay">
       <button class="lyr-btn active" id="lyr-states">States</button>
       <button class="lyr-btn active" id="lyr-artcc">ARTCCs</button>
       <button class="lyr-btn" id="lyr-ll" title="Show lat/lon in cursor tooltip">LL</button>
     </div>
-
-    <div id="map-legend" class="map-overlay"></div>
-
     <div id="cursor-tip"></div>
   </div>
 </div>
@@ -373,17 +373,13 @@ function renderHourStrip(avail) {
   document.getElementById("hr-next").onclick = () => stepHour(+1);
 
   // Build the timeline below hourbar
-  let wrap = document.getElementById("timeline-wrap");
-  if (!wrap) {
-    wrap = document.createElement("div");
-    wrap.id = "timeline-wrap";
-    document.getElementById("hourbar").after(wrap);
-  }
+  const wrap = document.getElementById("timeline-wrap");
 
   // Label row — show every 3rd hour to avoid crowding
+  // NEW
   const labelHtml = avail.map((fxx, i) => {
     const show = (i % 3 === 0 || i === avail.length - 1)
-      ? `F${String(fxx).padStart(2,"0")}` : "";
+      ? fxxToZulu(fxx) : "";
     return `<span>${show}</span>`;
   }).join("");
 
@@ -425,7 +421,7 @@ function updateTrackActive(fxx) {
 
   // Update fxx display label
   const disp = document.getElementById("tl-fxx-display");
-  if (disp) disp.textContent = `F${String(fxx).padStart(2,"0")}`;
+  if (disp) disp.textContent = fxxToZulu(fxx);
 
   // Update segment colors
   _availHours.forEach(h => {
@@ -483,6 +479,13 @@ function preloadHourImages(avail) {
       barb.src = barbUrl;
     }
   });
+}
+
+function fxxToZulu(fxx) {
+  if (!curCycle) return `F${String(fxx).padStart(2,"0")}`;
+  const cycleDate = new Date(curCycle);
+  const validDate = new Date(cycleDate.getTime() + fxx * 3600 * 1000);
+  return `${validDate.getUTCHours()}Z`;
 }
   
 /* ── boot / model / product ── */
