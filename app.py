@@ -92,6 +92,10 @@ def api_status(model_id, product_id):
 
 @app.get("/api/image/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_image(model_id, product_id, cycle_utc, fxx):
+    # Normalize cycle_utc to Z format regardless of how the URL encoded it
+    # (+00:00 and Z are the same moment but won't match as strings in Postgres)
+    cycle_utc = cycle_utc.replace("+00:00", "Z")
+
     # L1 — in-memory TTLCache (sub-ms, session only)
     cached = IMAGE_CACHE.get(model_id, product_id, cycle_utc, fxx, TTL)
     if cached:
@@ -102,13 +106,13 @@ def api_image(model_id, product_id, cycle_utc, fxx):
     if storage.spaces_available() and db.is_rendered(model_id, product_id, cycle_utc, fxx):
         png = storage.get_png(model_id, product_id, cycle_utc, fxx)
         if png:
-            IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)  # warm L1
+            IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)
             return Response(png, mimetype="image/png",
                             headers={"Cache-Control": f"public, max-age={TTL}"})
 
     # L3 — full GRIB download + render (authoritative, slow)
     prod = get_product(model_id, product_id)
-    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
+    cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     lat2d, lon2d, vals2d = prod.get_values(cycle_dt, fxx)
 
     overlay = (prod.get_contour_overlay(cycle_dt, fxx)
@@ -118,13 +122,11 @@ def api_image(model_id, product_id, cycle_utc, fxx):
     png = render_png(lat2d, lon2d, vals2d, prod.cmap, prod.norm,
                      prod.render_mode, contour_overlay=overlay)
 
-    # Store in L1 immediately
     IMAGE_CACHE.set(model_id, product_id, cycle_utc, fxx, png)
 
-    # Store in L2 in a background thread — don't block the HTTP response
     if storage.spaces_available():
         key = storage.object_key(model_id, product_id, cycle_utc, fxx)
-        png_copy = bytes(png)   # capture for thread closure — don't share a reference
+        png_copy = bytes(png)
         def _upload_to_l2():
             if storage.put_png(model_id, product_id, cycle_utc, fxx, png_copy):
                 db.record_render(model_id, product_id, cycle_utc, fxx, key)
@@ -133,10 +135,12 @@ def api_image(model_id, product_id, cycle_utc, fxx):
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
 
+
 # ── points endpoint (cursor sampling) ────────────────────────────────────────
 
 @app.get("/api/points/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_points(model_id, product_id, cycle_utc, fxx):
+    cycle_utc = cycle_utc.replace("00:00", "Z")
     """
     Return subsampled grid points for cursor-value display.
     Same data as the image but as JSON {lat, lon, value, ...}.
@@ -168,6 +172,7 @@ def api_points(model_id, product_id, cycle_utc, fxx):
 
 @app.get("/api/barbs/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_barbs(model_id, product_id, cycle_utc, fxx):
+    cycle_utc = cycle_utc.replace("00:00", "Z")
     prod = get_product(model_id, product_id)
     if not prod or not prod.supports_barbs:
         return Response("Product does not support barbs", status=404)
