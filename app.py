@@ -140,16 +140,14 @@ def api_image(model_id, product_id, cycle_utc, fxx):
 
 @app.get("/api/points/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_points(model_id, product_id, cycle_utc, fxx):
-    cycle_utc = cycle_utc.replace("00:00", "Z")
-    """
-    Return subsampled grid points for cursor-value display.
-    Same data as the image but as JSON {lat, lon, value, ...}.
-    """
+    """Return subsampled grid points for cursor-value display."""
+    cycle_utc = cycle_utc.replace("+00:00", "Z")   # ← + is required
+
     cached = POINTS_CACHE.get(model_id, product_id, cycle_utc, fxx, TTL)
     if cached:
         return jsonify(cached)
     prod = get_product(model_id, product_id)
-    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
+    cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     point_vals = prod.get_point_values(cycle_dt, fxx)
     lat2d, lon2d, _ = prod.get_values(cycle_dt, fxx)
     from datetime import timedelta
@@ -170,9 +168,11 @@ def api_points(model_id, product_id, cycle_utc, fxx):
     POINTS_CACHE.set(model_id, product_id, cycle_utc, fxx, result)
     return jsonify(result)
 
+
 @app.get("/api/barbs/<model_id>/<product_id>/<cycle_utc>/<int:fxx>")
 def api_barbs(model_id, product_id, cycle_utc, fxx):
-    cycle_utc = cycle_utc.replace("00:00", "Z")
+    cycle_utc = cycle_utc.replace("+00:00", "Z")   # ← + is required
+
     prod = get_product(model_id, product_id)
     if not prod or not prod.supports_barbs:
         return Response("Product does not support barbs", status=404)
@@ -183,12 +183,13 @@ def api_barbs(model_id, product_id, cycle_utc, fxx):
         return Response(cached, mimetype="image/png",
                         headers={"Cache-Control": f"public, max-age={TTL}"})
 
-    cycle_dt = datetime.fromisoformat(cycle_utc).replace(tzinfo=None)
+    cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
     png = render_barbs_png(lat2d, lon2d, u2d, v2d, stride=prod.barb_stride)
     IMAGE_CACHE.set(model_id, barbs_id, cycle_utc, fxx, png)
     return Response(png, mimetype="image/png",
                     headers={"Cache-Control": f"public, max-age={TTL}"})
+
 
 # ── composite endpoint (sigma-omega 2×2 panel) ───────────────────────────────
 
