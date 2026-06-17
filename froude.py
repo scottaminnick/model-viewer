@@ -161,14 +161,14 @@ def _build_prs_search(wind_level_mb, stab_bottom_mb, stab_top_mb):
 SFC_SEARCH = r"OROG"
 
 
-def _download_subset(cycle, product, fxx, search_string):
+def _download_subset(cycle, product, fxx, search_string, herbie_model="hrrr"):
     """
     Download a field subset via Herbie byte-range.
     Raises RuntimeError if the file is suspiciously large.
     """
     H = Herbie(
         cycle,
-        model="hrrr",
+        model=herbie_model,
         product=product,
         fxx=fxx,
         save_dir=str(HERBIE_DIR),
@@ -385,14 +385,15 @@ def _classify(fr):
 # Main fetch function
 # ---------------------------------------------------------------------------
 
-def fetch_froude(cycle_utc: str, fxx: int = 1, region_name: str = "front_range") -> dict:
+def fetch_froude(cycle_utc: str, fxx: int = 1, region_name: str = "front_range", herbie_model: str = "hrrr") -> dict:
     """
-    Compute a regional Froude number grid for a given HRRR cycle + hour.
+    Compute a regional Froude number grid for a given model cycle + hour.
 
     Args:
-        cycle_utc   : ISO string, e.g. '2026-02-22T02:00Z'
-        fxx         : forecast hour
-        region_name : key in REGION_CONFIGS
+        cycle_utc    : ISO string, e.g. '2026-02-22T02:00Z'
+        fxx          : forecast hour
+        region_name  : key in REGION_CONFIGS
+        herbie_model : Herbie model name ('hrrr' or 'rap')
     """
     cfg = _get_region_cfg(region_name)
 
@@ -412,13 +413,15 @@ def fetch_froude(cycle_utc: str, fxx: int = 1, region_name: str = "front_range")
     cycle = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     cycle_aware = cycle.replace(tzinfo=timezone.utc)
 
+    prs_product = "prs" if herbie_model == "hrrr" else "awp130pgrb"
+
     from grib_lock import GRIB_LOCK
 
     if not GRIB_LOCK.acquire(timeout=30):
         raise RuntimeError("GRIB_LOCK timeout — another download/read is already in progress.")
 
     try:
-        prs_path = _download_subset(cycle, "prs", fxx, prs_search)
+        prs_path = _download_subset(cycle, prs_product, fxx, prs_search, herbie_model=herbie_model)
 
         (
             lat_reg, lon_reg,
@@ -525,18 +528,19 @@ def get_froude_cached(
     fxx: int = 1,
     region_name: str = "front_range",
     ttl_seconds: int = 600,
+    herbie_model: str = "hrrr",
 ) -> dict:
     """
-    Cache keyed by (cycle_utc, fxx, region_name).
+    Cache keyed by (cycle_utc, fxx, region_name, herbie_model).
     """
-    key = (cycle_utc, fxx, region_name)
+    key = (cycle_utc, fxx, region_name, herbie_model)
     now = time.time()
 
     cached = _CACHE.get(key)
     if cached is None or (now - cached["ts"]) > ttl_seconds:
         _CACHE[key] = {
             "ts": now,
-            "data": fetch_froude(cycle_utc=cycle_utc, fxx=fxx, region_name=region_name),
+            "data": fetch_froude(cycle_utc=cycle_utc, fxx=fxx, region_name=region_name, herbie_model=herbie_model),
         }
 
     return _CACHE[key]["data"]
@@ -561,7 +565,7 @@ def fetch_froude_arrays(
     from scipy.interpolate import griddata
 
     cycle_utc = cycle_dt.strftime("%Y-%m-%dT%H:%MZ")
-    result = get_froude_cached(cycle_utc=cycle_utc, fxx=fxx, region_name=region_name)
+    result = get_froude_cached(cycle_utc=cycle_utc, fxx=fxx, region_name=region_name, herbie_model=herbie_model)
     pts = result["points"]
 
     lats = np.array([p["lat"] for p in pts])

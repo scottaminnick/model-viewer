@@ -58,13 +58,13 @@ register(_WindGust(
     searches=[":GUST:surface:"],
     cmap=_gust_cmap, norm=_gust_norm, legend=_gust_legend,
 ))
-register(_WindGust(
-    model_id="hrrr", product_id="wind_gust",
-    label="Wind Gusts — Surface", units="kt",
-    herbie_model="hrrr", herbie_product="sfc",
-    searches=[":GUST:surface:"],
-    cmap=_gust_cmap, norm=_gust_norm, legend=_gust_legend,
-))
+# register(_WindGust(
+#     model_id="hrrr", product_id="wind_gust",
+#     label="Wind Gusts — Surface", units="kt",
+#     herbie_model="hrrr", herbie_product="sfc",
+#     searches=[":GUST:surface:"],
+#     cmap=_gust_cmap, norm=_gust_norm, legend=_gust_legend,
+# ))
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  SURFACE WIND SPEED — 10m   (RAP13 + HRRR)
@@ -111,15 +111,15 @@ register(_SurfaceWindSpeed(
     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
     supports_barbs=True,
 ))
-register(_SurfaceWindSpeed(
-    model_id="hrrr", product_id="surface_wind",
-    label="Surface Wind Speed — 10m", units="kt",
-    herbie_model="hrrr", herbie_product="sfc",
-    searches=[],
-    cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
-    supports_barbs=True,
-    barb_stride=24,
-))
+# register(_SurfaceWindSpeed(
+#     model_id="hrrr", product_id="surface_wind",
+#     label="Surface Wind Speed — 10m", units="kt",
+#     herbie_model="hrrr", herbie_product="sfc",
+#     searches=[],
+#     cmap=_wind10_cmap, norm=_wind10_norm, legend=_wind10_legend,
+#     supports_barbs=True,
+#     barb_stride=24,
+# ))
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  MSLP   (RAP13 + HRRR)   — contour rendering
@@ -145,13 +145,13 @@ register(_MSLP(
     searches=[":MSLMA:mean sea level:", ":PRMSL:mean sea level:"],
     cmap=_mslp_cmap, norm=_mslp_norm, legend=_mslp_legend,
 ))
-register(_MSLP(
-    model_id="hrrr", product_id="mslp",
-    label="MSLP", units="hPa", render_mode="contour",
-    herbie_model="hrrr", herbie_product="sfc",
-    searches=[":MSLMA:mean sea level:", ":PRMSL:mean sea level:"],
-    cmap=_mslp_cmap, norm=_mslp_norm, legend=_mslp_legend,
-))
+# register(_MSLP(
+#     model_id="hrrr", product_id="mslp",
+#     label="MSLP", units="hPa", render_mode="contour",
+#     herbie_model="hrrr", herbie_product="sfc",
+#     searches=[":MSLMA:mean sea level:", ":PRMSL:mean sea level:"],
+#     cmap=_mslp_cmap, norm=_mslp_norm, legend=_mslp_legend,
+# ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -199,15 +199,15 @@ register(_Wind500mb(
     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
     supports_barbs=True,
 ))
-register(_Wind500mb(
-    model_id="hrrr", product_id="wind_500mb",
-    label="500mb Wind Speed", units="kt",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[],
-    cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
-    supports_barbs=True,
-    barb_stride=24,
-))
+# register(_Wind500mb(
+#     model_id="hrrr", product_id="wind_500mb",
+#     label="500mb Wind Speed", units="kt",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[],
+#     cmap=_w500_cmap, norm=_w500_norm, legend=_w500_legend,
+#     supports_barbs=True,
+#     barb_stride=24,
+# ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -259,13 +259,13 @@ register(_MixHeight(
     searches=[":HPBL:surface:"],
     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
 ))
-register(_MixHeight(
-    model_id="hrrr", product_id="mix_height",
-    label="Mixing Height (HPBL)", units="ft",
-    herbie_model="hrrr", herbie_product="sfc",
-    searches=[":HPBL:surface:"],
-    cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
-))
+# register(_MixHeight(
+#     model_id="hrrr", product_id="mix_height",
+#     label="Mixing Height (HPBL)", units="ft",
+#     herbie_model="hrrr", herbie_product="sfc",
+#     searches=[":HPBL:surface:"],
+#     cmap=_mix_cmap, norm=_mix_norm, legend=_mix_legend,
+# ))
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ICING THREAT (RAP13 + HRRR)
@@ -293,13 +293,13 @@ register(_Icing(
     searches=[PRS_SEARCH],
     cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
 ))
-register(_Icing(
-    model_id="hrrr", product_id="icing",
-    label="Icing Threat (Winter)", units="index",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[PRS_SEARCH],
-    cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
-))
+# register(_Icing(
+#     model_id="hrrr", product_id="icing",
+#     label="Icing Threat (Winter)", units="index",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[PRS_SEARCH],
+#     cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
+# ))
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  FROUDE NUMBER — mountain wave indicator   (RAP13)
@@ -333,13 +333,21 @@ class _FroudeRegion(ProductDef):
         )
 
 register(_FroudeRegion(
-    model_id="hrrr", product_id="froude_front_range",
+    model_id="rap13", product_id="froude_front_range",
     label="Froude — Front Range", units="Fr",
-    herbie_model="hrrr", herbie_product="prs",
+    herbie_model="rap", herbie_product="awp130pgrb",
     searches=[],
     region_name="front_range",
     cmap=_fr_cmap, norm=_fr_norm, legend=_fr_legend,
 ))
+# register(_FroudeRegion(
+#     model_id="hrrr", product_id="froude_front_range",
+#     label="Froude — Front Range", units="Fr",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[],
+#     region_name="front_range",
+#     cmap=_fr_cmap, norm=_fr_norm, legend=_fr_legend,
+# ))
 
 
 # ── Virga ──────────────────────────────────────────────────────────────────
@@ -366,13 +374,13 @@ register(_Virga(
     searches=[r"(?:TMP|RH|UGRD|VGRD):(?:500|600|700|800|850) mb"],
     cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
 ))
-register(_Virga(
-    model_id="hrrr", product_id="virga",
-    label="Virga Turbulence Potential", units="%",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[r"(?:TMP|DPT|UGRD|VGRD):(?:500|550|600|650|700|750|800|850) mb"],
-    cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
-))
+# register(_Virga(
+#     model_id="hrrr", product_id="virga",
+#     label="Virga Turbulence Potential", units="%",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[r"(?:TMP|DPT|UGRD|VGRD):(?:500|550|600|650|700|750|800|850) mb"],
+#     cmap=_virga_cmap, norm=_virga_norm, legend=_virga_legend,
+# ))
 
 # ── LLTI ───────────────────────────────────────────────────────────────────
 
@@ -400,14 +408,14 @@ register(_LLTI(
     searches=[],
     cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
 ))
-register(_LLTI(
-    model_id="hrrr", product_id="llti",
-    label="Low-Level Turbulence Index", units="index",
-    herbie_model="hrrr", herbie_product="prs",
-    sfc_product="sfc",
-    searches=[],
-    cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
-))
+# register(_LLTI(
+#     model_id="hrrr", product_id="llti",
+#     label="Low-Level Turbulence Index", units="index",
+#     herbie_model="hrrr", herbie_product="prs",
+#     sfc_product="sfc",
+#     searches=[],
+#     cmap=_llti_cmap, norm=_llti_norm, legend=_llti_legend,
+# ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -597,13 +605,13 @@ register(_Turbulence(
     searches=[],
     cmap=_ti_cmap, norm=_ti_norm, legend=_ti_legend,
 ))
-register(_Turbulence(
-    model_id="hrrr", product_id="turbulence",
-    label="Turbulence — Ellrod TI1 (300–250mb)", units="TI",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[],
-    cmap=_ti_cmap, norm=_ti_norm, legend=_ti_legend,
-))
+# register(_Turbulence(
+#     model_id="hrrr", product_id="turbulence",
+#     label="Turbulence — Ellrod TI1 (300–250mb)", units="TI",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[],
+#     cmap=_ti_cmap, norm=_ti_norm, legend=_ti_legend,
+# ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -793,13 +801,13 @@ register(_TurbulenceRi(
     searches=[],
     cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
 ))
-register(_TurbulenceRi(
-    model_id="hrrr", product_id="turbulence_ri",
-    label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
-    herbie_model="hrrr", herbie_product="prs",
-    searches=[],
-    cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
-))
+# register(_TurbulenceRi(
+#     model_id="hrrr", product_id="turbulence_ri",
+#     label="Turbulence — Stability-Weighted Ellrod (300–250mb)", units="TI·Ri",
+#     herbie_model="hrrr", herbie_product="prs",
+#     searches=[],
+#     cmap=_ti_ri_cmap, norm=_ti_ri_norm, legend=_ti_ri_legend,
+# ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -868,18 +876,36 @@ class _SigmaOmegaLevel(ProductDef):
 
 for _so_lvl in [200, 250, 300, 400]:
     register(_SigmaOmegaLevel(
-        model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+        model_id="rap13", product_id=f"sigma_omega_{_so_lvl}",
         label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
-        herbie_model="hrrr", herbie_product="prs",
+        herbie_model="rap", herbie_product="awp130pgrb",
         searches=[], level_hpa=_so_lvl,
         cmap=_so_hi_cmap, norm=_so_hi_norm, legend=_so_hi_legend,
     ))
 
 for _so_lvl in [500, 600, 700, 800]:
     register(_SigmaOmegaLevel(
-        model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+        model_id="rap13", product_id=f"sigma_omega_{_so_lvl}",
         label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
-        herbie_model="hrrr", herbie_product="prs",
+        herbie_model="rap", herbie_product="awp130pgrb",
         searches=[], level_hpa=_so_lvl,
         cmap=_so_lo_cmap, norm=_so_lo_norm, legend=_so_lo_legend,
     ))
+
+# for _so_lvl in [200, 250, 300, 400]:
+#     register(_SigmaOmegaLevel(
+#         model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+#         label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
+#         herbie_model="hrrr", herbie_product="prs",
+#         searches=[], level_hpa=_so_lvl,
+#         cmap=_so_hi_cmap, norm=_so_hi_norm, legend=_so_hi_legend,
+#     ))
+
+# for _so_lvl in [500, 600, 700, 800]:
+#     register(_SigmaOmegaLevel(
+#         model_id="hrrr", product_id=f"sigma_omega_{_so_lvl}",
+#         label=f"σ(ω) {_so_lvl} hPa — Mountain Wave", units="Pa/s",
+#         herbie_model="hrrr", herbie_product="prs",
+#         searches=[], level_hpa=_so_lvl,
+#         cmap=_so_lo_cmap, norm=_so_lo_norm, legend=_so_lo_legend,
+#     ))
