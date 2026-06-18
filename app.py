@@ -110,6 +110,9 @@ def api_image(model_id, product_id, cycle_utc, fxx):
             return Response(png, mimetype="image/png",
                             headers={"Cache-Control": f"public, max-age={TTL}"})
 
+    if os.environ.get("ALLOW_LIVE_RENDER", "0") != "1":
+        return jsonify({"status": "warming", "detail": "not yet cached"}), 503
+
     # L3 — full GRIB download + render (authoritative, slow)
     prod = get_product(model_id, product_id)
     cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
@@ -146,6 +149,9 @@ def api_points(model_id, product_id, cycle_utc, fxx):
     cached = POINTS_CACHE.get(model_id, product_id, cycle_utc, fxx, TTL)
     if cached:
         return jsonify(cached)
+    if os.environ.get("ALLOW_LIVE_RENDER", "0") != "1":
+        if not (storage.spaces_available() and db.is_rendered(model_id, product_id, cycle_utc, fxx)):
+            return jsonify({"status": "warming", "detail": "not yet cached"}), 503
     prod = get_product(model_id, product_id)
     cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     point_vals = prod.get_point_values(cycle_dt, fxx)
@@ -182,6 +188,9 @@ def api_barbs(model_id, product_id, cycle_utc, fxx):
     if cached:
         return Response(cached, mimetype="image/png",
                         headers={"Cache-Control": f"public, max-age={TTL}"})
+
+    if os.environ.get("ALLOW_LIVE_RENDER", "0") != "1":
+        return jsonify({"status": "warming", "detail": "not yet cached"}), 503
 
     cycle_dt = datetime.fromisoformat(cycle_utc.replace("Z", "+00:00")).replace(tzinfo=None)
     lat2d, lon2d, u2d, v2d = prod.get_barb_data(cycle_dt, fxx)
