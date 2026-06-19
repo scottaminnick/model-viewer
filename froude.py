@@ -417,7 +417,7 @@ def fetch_froude(cycle_utc: str, fxx: int = 1, region_name: str = "front_range",
 
     from grib_lock import GRIB_LOCK
 
-    if not GRIB_LOCK.acquire(timeout=30):
+    if not GRIB_LOCK.acquire(timeout=300):
         raise RuntimeError("GRIB_LOCK timeout — another download/read is already in progress.")
 
     try:

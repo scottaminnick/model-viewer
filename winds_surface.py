@@ -171,7 +171,7 @@ def fetch_surface_wind(cycle_utc: str, fxx: int = 1) -> dict:
     cycle_aware = cycle.replace(tzinfo=timezone.utc)
 
     # ── Download under global lock ────────────────────────────────────────────
-    if not GRIB_LOCK.acquire(timeout=30):
+    if not GRIB_LOCK.acquire(timeout=300):
         raise RuntimeError(
             "GRIB_LOCK timeout — another download is in progress, retry shortly."
         )
