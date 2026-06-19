@@ -47,7 +47,8 @@ def _preflight_compile():
 _preflight_compile()
 db.init_db()
 from warmup import start_warmup_thread
-start_warmup_thread()
+if os.environ.get("ALLOW_LIVE_RENDER", "0") == "1":
+    start_warmup_thread()
 # Kick off ARTCC boundary download in background
 threading.Thread(target=ensure_artcc_geojson, daemon=True).start()
 
