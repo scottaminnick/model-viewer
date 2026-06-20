@@ -24,6 +24,7 @@ from renderer import herbie_fetch, extract_var, get_latlon
 from icing_threat import PRS_SEARCH
 
 _HRRR = os.environ.get("ENABLE_HRRR", "0") == "1"
+_ICING = os.environ.get("ENABLE_ICING", "0") == "1"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Helper: build a ListedColormap + BoundaryNorm + legend from parallel lists
@@ -294,13 +295,14 @@ class _Icing(ProductDef):        # ← this line is missing
         )
         return lat2d, lon2d, score2d
 
-register(_Icing(
-    model_id="rap13", product_id="icing",
-    label="Icing Threat (Winter)", units="index",
-    herbie_model="rap", herbie_product="awp130pgrb",
-    searches=[PRS_SEARCH],
-    cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
-))
+if _ICING:
+    register(_Icing(
+        model_id="rap13", product_id="icing",
+        label="Icing Threat (Winter)", units="index",
+        herbie_model="rap", herbie_product="awp130pgrb",
+        searches=[PRS_SEARCH],
+        cmap=_ice_cmap, norm=_ice_norm, legend=_ice_legend,
+    ))
 if _HRRR:
     register(_Icing(
         model_id="hrrr", product_id="icing",
